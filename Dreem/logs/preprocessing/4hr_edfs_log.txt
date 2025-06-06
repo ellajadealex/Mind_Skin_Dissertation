@@ -1,0 +1,228 @@
+=== Run on 2025-06-05 14:39:27 ===
+Total EDFs processed:      347
+Files meeting 4hr threshold:      310
+Files excluded: 37
+
+Participant breakdown:
+MS01: kept=      12, excluded=7
+MS02: kept=       3, excluded=0
+MS03: kept=       8, excluded=5
+MS04: kept=      20, excluded=2
+MS05: kept=       9, excluded=2
+MS06: kept=       1, excluded=2
+MS07: kept=      11, excluded=0
+MS08: kept=       5, excluded=1
+MS09: kept=      12, excluded=0
+MS10: kept=       9, excluded=1
+MS12: kept=       9, excluded=1
+MS14: kept=      12, excluded=2
+MS16: kept=       9, excluded=1
+MS18: kept=       6, excluded=1
+MS19: kept=      12, excluded=1
+MS21: kept=      13, excluded=2
+MS22: kept=      10, excluded=2
+MS23: kept=       8, excluded=0
+MS25: kept=      10, excluded=0
+MS26: kept=       9, excluded=2
+MS27: kept=       9, excluded=0
+MS28: kept=       4, excluded=0
+MS29: kept=       1, excluded=0
+MS30: kept=      10, excluded=0
+MS31: kept=       9, excluded=4
+MS32: kept=      22, excluded=1
+MS33: kept=      10, excluded=0
+MS34: kept=      20, excluded=0
+MS35: kept=      10, excluded=0
+MS36: kept=      10, excluded=0
+MS39: kept=       9, excluded=0
+MS40: kept=       8, excluded=0
+=== Run on 2025-06-06 09:48:32 ===
+Total EDFs processed:      347
+Files meeting 4hr threshold:      310
+Files excluded: 37
+
+Participant breakdown:
+MS01: kept=      12, excluded=7
+MS02: kept=       3, excluded=0
+MS03: kept=       8, excluded=5
+MS04: kept=      20, excluded=2
+MS05: kept=       9, excluded=2
+MS06: kept=       1, excluded=2
+MS07: kept=      11, excluded=0
+MS08: kept=       5, excluded=1
+MS09: kept=      12, excluded=0
+MS10: kept=       9, excluded=1
+MS12: kept=       9, excluded=1
+MS14: kept=      12, excluded=2
+MS16: kept=       9, excluded=1
+MS18: kept=       6, excluded=1
+MS19: kept=      12, excluded=1
+MS21: kept=      13, excluded=2
+MS22: kept=      10, excluded=2
+MS23: kept=       8, excluded=0
+MS25: kept=      10, excluded=0
+MS26: kept=       9, excluded=2
+MS27: kept=       9, excluded=0
+MS28: kept=       4, excluded=0
+MS29: kept=       1, excluded=0
+MS30: kept=      10, excluded=0
+MS31: kept=       9, excluded=4
+MS32: kept=      22, excluded=1
+MS33: kept=      10, excluded=0
+MS34: kept=      20, excluded=0
+MS35: kept=      10, excluded=0
+MS36: kept=      10, excluded=0
+MS39: kept=       9, excluded=0
+MS40: kept=       8, excluded=0
+=== Run on 2025-06-06 09:53:18 ===
+Total EDFs processed:      347
+Files meeting 4hr threshold:      310
+Files excluded: 37
+
+Participant breakdown:
+MS01: kept=      12, excluded=7
+MS02: kept=       3, excluded=0
+MS03: kept=       8, excluded=5
+MS04: kept=      20, excluded=2
+MS05: kept=       9, excluded=2
+MS06: kept=       1, excluded=2
+MS07: kept=      11, excluded=0
+MS08: kept=       5, excluded=1
+MS09: kept=      12, excluded=0
+MS10: kept=       9, excluded=1
+MS12: kept=       9, excluded=1
+MS14: kept=      12, excluded=2
+MS16: kept=       9, excluded=1
+MS18: kept=       6, excluded=1
+MS19: kept=      12, excluded=1
+MS21: kept=      13, excluded=2
+MS22: kept=      10, excluded=2
+MS23: kept=       8, excluded=0
+MS25: kept=      10, excluded=0
+MS26: kept=       9, excluded=2
+MS27: kept=       9, excluded=0
+MS28: kept=       4, excluded=0
+MS29: kept=       1, excluded=0
+MS30: kept=      10, excluded=0
+MS31: kept=       9, excluded=4
+MS32: kept=      22, excluded=1
+MS33: kept=      10, excluded=0
+MS34: kept=      20, excluded=0
+MS35: kept=      10, excluded=0
+MS36: kept=      10, excluded=0
+MS39: kept=       9, excluded=0
+MS40: kept=       8, excluded=0
+=== Run on 2025-06-06 09:56:00 ===
+Total EDFs processed:      347
+Files meeting 4hr threshold:      310
+Files excluded: 37
+
+Participant breakdown:
+MS01: kept=      12, excluded=7
+MS02: kept=       3, excluded=0
+MS03: kept=       8, excluded=5
+MS04: kept=      20, excluded=2
+MS05: kept=       9, excluded=2
+MS06: kept=       1, excluded=2
+MS07: kept=      11, excluded=0
+MS08: kept=       5, excluded=1
+MS09: kept=      12, excluded=0
+MS10: kept=       9, excluded=1
+MS12: kept=       9, excluded=1
+MS14: kept=      12, excluded=2
+MS16: kept=       9, excluded=1
+MS18: kept=       6, excluded=1
+MS19: kept=      12, excluded=1
+MS21: kept=      13, excluded=2
+MS22: kept=      10, excluded=2
+MS23: kept=       8, excluded=0
+MS25: kept=      10, excluded=0
+MS26: kept=       9, excluded=2
+MS27: kept=       9, excluded=0
+MS28: kept=       4, excluded=0
+MS29: kept=       1, excluded=0
+MS30: kept=      10, excluded=0
+MS31: kept=       9, excluded=4
+MS32: kept=      22, excluded=1
+MS33: kept=      10, excluded=0
+MS34: kept=      20, excluded=0
+MS35: kept=      10, excluded=0
+MS36: kept=      10, excluded=0
+MS39: kept=       9, excluded=0
+MS40: kept=       8, excluded=0
+=== Run on 2025-06-06 09:58:53 ===
+Total EDFs processed:      347
+Files meeting 4hr threshold:      310
+Files excluded: 37
+
+Participant breakdown:
+MS01: kept=      12, excluded=7
+MS02: kept=       3, excluded=0
+MS03: kept=       8, excluded=5
+MS04: kept=      20, excluded=2
+MS05: kept=       9, excluded=2
+MS06: kept=       1, excluded=2
+MS07: kept=      11, excluded=0
+MS08: kept=       5, excluded=1
+MS09: kept=      12, excluded=0
+MS10: kept=       9, excluded=1
+MS12: kept=       9, excluded=1
+MS14: kept=      12, excluded=2
+MS16: kept=       9, excluded=1
+MS18: kept=       6, excluded=1
+MS19: kept=      12, excluded=1
+MS21: kept=      13, excluded=2
+MS22: kept=      10, excluded=2
+MS23: kept=       8, excluded=0
+MS25: kept=      10, excluded=0
+MS26: kept=       9, excluded=2
+MS27: kept=       9, excluded=0
+MS28: kept=       4, excluded=0
+MS29: kept=       1, excluded=0
+MS30: kept=      10, excluded=0
+MS31: kept=       9, excluded=4
+MS32: kept=      22, excluded=1
+MS33: kept=      10, excluded=0
+MS34: kept=      20, excluded=0
+MS35: kept=      10, excluded=0
+MS36: kept=      10, excluded=0
+MS39: kept=       9, excluded=0
+MS40: kept=       8, excluded=0
+=== Run on 2025-06-06 09:59:42 ===
+Total EDFs processed:      347
+Files meeting 4hr threshold:      310
+Files excluded: 37
+
+Participant breakdown:
+MS01: kept=      12, excluded=7
+MS02: kept=       3, excluded=0
+MS03: kept=       8, excluded=5
+MS04: kept=      20, excluded=2
+MS05: kept=       9, excluded=2
+MS06: kept=       1, excluded=2
+MS07: kept=      11, excluded=0
+MS08: kept=       5, excluded=1
+MS09: kept=      12, excluded=0
+MS10: kept=       9, excluded=1
+MS12: kept=       9, excluded=1
+MS14: kept=      12, excluded=2
+MS16: kept=       9, excluded=1
+MS18: kept=       6, excluded=1
+MS19: kept=      12, excluded=1
+MS21: kept=      13, excluded=2
+MS22: kept=      10, excluded=2
+MS23: kept=       8, excluded=0
+MS25: kept=      10, excluded=0
+MS26: kept=       9, excluded=2
+MS27: kept=       9, excluded=0
+MS28: kept=       4, excluded=0
+MS29: kept=       1, excluded=0
+MS30: kept=      10, excluded=0
+MS31: kept=       9, excluded=4
+MS32: kept=      22, excluded=1
+MS33: kept=      10, excluded=0
+MS34: kept=      20, excluded=0
+MS35: kept=      10, excluded=0
+MS36: kept=      10, excluded=0
+MS39: kept=       9, excluded=0
+MS40: kept=       8, excluded=0

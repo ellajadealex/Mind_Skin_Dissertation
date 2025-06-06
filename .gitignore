@@ -1,19 +1,13 @@
 # === DREEM ===
 
-# Raw data
-Dreem/data/raw/
+# Raw & Processed EDF data
+*.edf
 
-# Processed EDFs and annotations
-Dreem/data/processed/edf_data/
-Dreem/data/processed/hypnogram/
-Dreem/data/processed/annotations/
-Dreem/data/processed/sample_list/
-Dreem/data/processed/luna_outputs/
-Dreem/data/processed/meta/
-Dreem/data/processed/*.db
+# Dreem Reports
+Dreem/data/raw/**/**/**/reports
 
-# Logs
-Dreem/logs/
+# Luna DB outputs
+Dreem/data/processed/luna_outputs/*
 
 .DS_Store
 

@@ -1,0 +1,24 @@
+Dreem Hypnogram Export
+Patient: 
+Patient ID: 1db77f9b-854d-4941-a166-ee730d0dba92
+Recording Date: 11/03/23
+
+Events Included:
+SLEEP-MT
+SLEEP-REM
+SLEEP-S0
+SLEEP-S1
+SLEEP-S2
+SLEEP-S3
+
+Scoring Session:
+Scorer Name: Dreem
+Scorer Time: 11/03/23 - 00:29:25
+
+Sleep Stage	Time [hh:mm:ss]	Event	Duration[s]
+SLEEP-S0	00:29:25	SLEEP-S0	30
+SLEEP-S0	00:29:55	SLEEP-S0	30
+SLEEP-S0	00:30:25	SLEEP-S0	30
+SLEEP-MT	00:30:55	SLEEP-MT	30
+SLEEP-MT	00:31:25	SLEEP-MT	30
+SLEEP-MT	00:31:55	SLEEP-MT	30

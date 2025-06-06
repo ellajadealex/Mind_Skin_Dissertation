@@ -1,0 +1,115 @@
+=== Luna DB Build Log: 2025-06-06 08:46:30 ===
+Running Luna on /Users/ellajadealex/Desktop/Dreem_Test_2/data/processed/sample_list/min_4hr_edf.lst using /Users/ellajadealex/Desktop/Dreem_Test_2/scripts/luna_cmds/luna_db_raw.txt
+===================================================================
++++ luna | v1.2.1 , 03-Jan-2025 | starting 06-Jun-2025 08:46:30 +++
+===================================================================
+error : epoch parameter specified twice, only one value would be retained
+❌ Luna command failed
+
+=== Luna DB Build Log: 2025-06-06 09:26:19 ===
+Running Luna on /Users/ellajadealex/Desktop/Dreem_Test_2/data/processed/sample_list/min_4hr_edf.lst using /Users/ellajadealex/Desktop/Dreem_Test_2/scripts/luna_cmds/luna_db_raw.txt
+===================================================================
++++ luna | v1.2.1 , 03-Jan-2025 | starting 06-Jun-2025 09:26:19 +++
+===================================================================
+error : epoch parameter specified twice, only one value would be retained
+❌ Luna command failed
+
+=== Luna DB Build Log: 2025-06-06 10:37:38 ===
+Running Luna on /Users/ellajadealex/Desktop/Dreem_Test_2/data/processed/sample_list/min_4hr_edf.lst using /Users/ellajadealex/Desktop/Dreem_Test_2/scripts/luna_cmds/luna_db_raw.txt
+===================================================================
++++ luna | v1.2.1 , 03-Jan-2025 | starting 06-Jun-2025 10:37:38 +++
+===================================================================
+error : epoch parameter specified twice, only one value would be retained
+❌ Luna command failed
+
+=== Luna DB Build Log: 2025-06-06 15:11:46 ===
+Running Luna on /Users/ellajadealex/Desktop/Dreem_Test_2/data/processed/sample_list/min_4hr_edf.lst using /Users/ellajadealex/Desktop/Dreem_Test_2/scripts/luna_cmds/luna_db_raw.txt
+===================================================================
++++ luna | v1.2.1 , 03-Jan-2025 | starting 06-Jun-2025 15:11:46 +++
+===================================================================
+error : epoch parameter specified twice, only one value would be retained
+❌ Luna command failed
+
+=== Luna DB Build Log: 2025-06-06 15:25:31 ===
+Running Luna on /Users/ellajadealex/Desktop/Dreem_Test_2/data/processed/sample_list/min_4hr_edf.lst using /Users/ellajadealex/Desktop/Dreem_Test_2/scripts/luna_cmds/luna_db_raw.txt
+===================================================================
++++ luna | v1.2.1 , 03-Jan-2025 | starting 06-Jun-2025 15:25:31 +++
+===================================================================
+input(s): /Users/ellajadealex/Desktop/Dreem_Test_2/data/processed/sample_list/min_4hr_edf.lst
+output  : /Users/ellajadealex/Desktop/Dreem_Test_2/data/processed/luna_outputs/dreem_raw.db
+commands: c1	EPOCH	
+        : c2	SIGNALS	keep=EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2
+        : c3	MASK	ifnot=N1,N2,N3,R,W
+        : c4	RESTRUCTURE	
+        : c5	EDGER	
+        : c6	HJORTH	
+        : c7	RMS	
+        : c8	SIGSTATS	
+        : c9	PSD	spectrum
+
+___________________________________________________________________
+Processing: MS01_V1_N10 [ #1 ]
+ duration 06.58.50, 25130s | time 03.46.22 - 10.45.12 | date 09.05.23
+
+ signals: 10 (of 10) selected in a standard EDF file
+  Accelero_Norm | EEG_F7_O1 | EEG_F8_O2 | EEG_F8_F7 | EEG_F8_O1 | EEG_F7_O2 | Positiongram | Respiration_x
+  Respiration_y | Respiration_z
+
+ annotations:
+  MT (x1) | N1 (x45) | N2 (x346) | N3 (x212)
+  R (x177) | W (x56)
+
+ variables:
+  eeg=EEG_F7_O1,... | generic=Accelero_N... | id=MS01_V1_N10 | leg=Respiratio...
+  position=Positiongram
+ ..................................................................
+ CMD #1: EPOCH
+   options: sig=*
+  set epochs, length 30 (step 30, offset 0), 837 epochs
+ ..................................................................
+ CMD #2: SIGNALS
+   options: keep=EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2 sig=*
+  dropping channels: Accelero_Norm Positiongram Respiration_x Respiration_y Respiration_z
+ ..................................................................
+ CMD #3: MASK
+   options: ifnot=N1,N2,N3,R,W sig=*
+  set masking mode to 'force'
+  annots: N1 N2 N3 R W
+  applied annotation mask for 5 annotation(s) (using or-matching across multiple annotations)
+  836 epochs match; 1 newly masked, 0 unmasked, 836 unchanged
+  total of 836 of 837 retained
+ ..................................................................
+ CMD #4: RESTRUCTURE
+   options: sig=*
+  restructuring as an EDF+:  retaining 25080 of 25130 records
+  of 418.833 minutes, dropping 0.833333, retaining 418
+  resetting mask
+  clearing any cached values and recording options
+  retaining 836 epochs
+ ..................................................................
+ CMD #5: EDGER
+   options: sig=*
+  set 0 leading/trailing sleep epochs to '?' (given end-wake=120 and end-sleep=5)
+  anchoring on sleep epochs only for normative ranges, using 780 of 836 epochs
+  for EEG_F7_O1, flagged 60 epochs (H1=28, H3=41)
+  H(1) bounds: 2.26602 .. 11.4077
+  H(3) bounds: 0.106977 .. 0.727517
+  for EEG_F8_O2, flagged 43 epochs (H1=29, H3=31)
+  H(1) bounds: 2.97974 .. 10.5705
+  H(3) bounds: 0.181204 .. 0.635978
+  for EEG_F8_F7, flagged 43 epochs (H1=19, H3=26)
+  H(1) bounds: 0.0529695 .. 11.4824
+  H(3) bounds: 0.171444 .. 0.786028
+  for EEG_F8_O1, flagged 53 epochs (H1=32, H3=35)
+  H(1) bounds: 2.93779 .. 10.6662
+  H(3) bounds: 0.179197 .. 0.687594
+  for EEG_F7_O2, flagged 54 epochs (H1=27, H3=33)
+  H(1) bounds: 2.46821 .. 11.3068
+  H(3) bounds: 0.137487 .. 0.714667
+  no trimming indicated: did not alter lights-off or lights-on times
+ ..................................................................
+ CMD #6: HJORTH
+   options: sig=*
+error : did not recognize command: HJORTH
+❌ Luna command failed
+
