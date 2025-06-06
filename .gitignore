@@ -1,0 +1,23 @@
+# === DREEM ===
+
+# Raw data
+Dreem/data/raw/
+
+# Processed EDFs and annotations
+Dreem/data/processed/edf_data/
+Dreem/data/processed/hypnogram/
+Dreem/data/processed/annotations/
+Dreem/data/processed/sample_list/
+Dreem/data/processed/luna_outputs/
+Dreem/data/processed/meta/
+Dreem/data/processed/*.db
+
+# Logs
+Dreem/logs/
+
+.DS_Store
+
+# === REDCAP ===
+
+# Raw and exported data files
+Redcap/data

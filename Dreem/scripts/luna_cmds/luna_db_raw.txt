@@ -1,0 +1,15 @@
+% luna_db_raw.txt
+% Build a clean, unfiltered, unmasked Luna DB from all available EDF signals
+
+EPOCH                          % Define fixed-length epochs, default is 30s
+
+SIGNALS keep=EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2
+
+MASK ifnot=N1,N2,N3,R,W       % Apply before PSD and SIGSTATS
+
+RESTRUCTURE
+
+EDGER                         % Basic edge artifact flags
+
+SIGSTATS                      % Signal statistics per epoch
+PSD spectrum                  % Power spectral density (Welch method)

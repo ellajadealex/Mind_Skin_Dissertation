@@ -1,0 +1,30 @@
+# Define epochs
+EPOCH
+
+# Select EEG channels (you can modify this if needed)
+SIGNALS keep=EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2
+
+# Denoise and filter
+LINE-DENOISE                   # Remove 50/60 Hz power line interference
+FILTER bandpass=0.3,35         # Bandpass filter
+       ripple=0.01
+       tw=0.5
+
+# Artifact detection
+EDGER                          # Detect edges of signal artifacts
+HJORTH                         # Hjorth parameters (activity, mobility, complexity)
+RMS                            # Root mean square (power)
+
+# Apply masking for bad segments and CHEP analysis
+MASK ifnot=N1,N2,N3,R,W        # Keep standard sleep stages only
+CHEP-MASK ep-th=3,3            # Mask entire epochs if 3/3 channels fail
+CHEP-MASK ch-th=2              # Mask channels if 2 or more channels fail
+CHEP dump                      # Dump CHEP values (redirected to raw_chep_dump.txt in script)
+
+# Re-structure to remove masked segments
+RESTRUCTURE
+
+# Final metrics
+SIGSTATS epoch                 # Signal statistics per epoch
+PSD spectrum                   # Welch power spectral density
+
