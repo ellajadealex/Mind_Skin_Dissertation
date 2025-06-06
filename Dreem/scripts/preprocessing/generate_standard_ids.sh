@@ -6,7 +6,7 @@ PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 RAW_DIR="$PROJECT_ROOT/data/raw"
 PROCESSED_EDF_DIR="$PROJECT_ROOT/data/processed/edf_data"
 PROCESSED_HYPNO_DIR="$PROJECT_ROOT/data/processed/hypnogram"
-ID_MAP="$PROJECT_ROOT/data/processed/id_map.csv"
+ID_MAP="$PROJECT_ROOT/data/processed/metadata/id_map.csv"
 LOG_FILE="$PROJECT_ROOT/logs/preprocessing/rename_log.txt"
 
 mkdir -p "$PROCESSED_EDF_DIR" "$PROCESSED_HYPNO_DIR" "$(dirname "$ID_MAP")" "$(dirname "$LOG_FILE")"
