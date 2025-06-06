@@ -17,7 +17,3 @@ Dreem/logs/
 
 .DS_Store
 
-# === REDCAP ===
-
-# Raw and exported data files
-Redcap/data
