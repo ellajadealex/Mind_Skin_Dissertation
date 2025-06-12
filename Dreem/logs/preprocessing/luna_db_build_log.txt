@@ -113,3 +113,23 @@ Processing: MS01_V1_N10 [ #1 ]
 error : did not recognize command: HJORTH
 ❌ Luna command failed
 
+=== Luna DB Build Log: 2025-06-10 10:28:17 ===
+Running Luna on /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/sample_list/min_4hr_edf.lst using /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/scripts/luna_cmds/luna_db_raw.txt
+===================================================================
++++ luna | v1.2.1 , 03-Jan-2025 | starting 10-Jun-2025 10:28:17 +++
+===================================================================
+input(s): /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/sample_list/min_4hr_edf.lst
+output  : /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/luna_outputs/dreem_raw.db
+commands: c1	EPOCH	
+        : c2	SIGNALS	keep=EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2
+        : c3	MASK	ifnot=N1,N2,N3,R,W
+        : c4	RESTRUCTURE	
+        : c5	EDGER	
+        : c6	SIGSTATS	
+        : c7	PSD	spectrum
+
+___________________________________________________________________
+Processing: MS01_V1_N10 [ #1 ]
+error : could not open specified EDF: /Users/ellajadealex/Desktop/Dreem_Test_2/data/processed/edf_data/MS01_V1_N10.edf
+❌ Luna command failed
+

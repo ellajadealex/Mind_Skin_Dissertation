@@ -4,3 +4,181 @@ author: "Ella Jade Alexander"
 format: html
 editor: visual
 ---
+
+# Redcap Database
+
+## Setup
+
+### Setting Base Directory
+
+Assuming that this quarto is in the Redcap/scripts folder, we want to set it to the Redcap folder.
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+
+```
+
+### Loading Necessary Libraries
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(dplyr)
+```
+
+### Loading Raw Data
+
+```{r}
+
+# Read Redcap csv with snake_case
+redcap_raw <- read_csv("data/raw/MindSkinVer40_DATA_2025-01-22_1418.csv")
+
+# Preview the raw database
+redcap_raw
+```
+
+### Metadata: Data Dictionary
+
+Here, we are creating a data dictionary that shows the human-readable, snake_case labels, and variable coding all in one place.
+
+When loading the DATA_LABELS csv into R, the names of the columns are renamed for each to be unique, since there are multiple repeats. So we can't just load it in normally.
+
+Also, for this to work, there have to be equal numbers of columns in both .csv files. The stopifnot function ensures that before continuing.
+
+```{r}
+# Extract clean column labels from the LABELS file
+label_names <- names(read_csv("data/raw/MindSkinVer40_DATA_LABELS_2025-01-22_1419.csv", col_names = TRUE, n_max = 0))
+
+# Read just the first line (header) of the LABELS CSV as a plain string
+header_line <- read_lines("data/raw/MindSkinVer40_DATA_LABELS_2025-01-22_1419.csv", n_max = 1)
+
+# Split the header string on commas, handling quoted strings
+label_names <- read.csv(text = header_line, header = FALSE, stringsAsFactors = FALSE) |> 
+  as.character()
+
+# Confirm result
+label_names
+
+# Make sure they align
+stopifnot(length(colnames(redcap_raw)) == length(label_names))
+
+# Create a raw label dictionary
+label_dictionary <- tibble(
+  variable_name = colnames(redcap_raw),
+  label = label_names
+)
+
+# Save the dictionary
+write_csv(label_dictionary, "data/metadata/label_dictionary_raw.csv")
+```
+
+## Filtering
+
+### Row Filtering
+
+Filtering out the rows with "logs_arm_1" and "end_of_study_arm_1", as they are not necessary. We will keep only baseline visit and 6 month followup.
+
+```{r}
+# Remove any non-data events: logs, end-of-study summaries
+redcap_filtered <- redcap_raw %>%
+  filter(!redcap_event_name %in% c("logs_arm_1", "end_of_study_arm_1"))
+
+# Preview changes made
+redcap_filtered
+```
+
+### Column Filtering
+
+We are going off of the list of necessary columns, per the PHD student in my group.
+
+First, we will define a list of variables to keep.
+
+```{r}
+# Define variables to keep based on manual curation
+keep_vars <- c(
+  "subject_id", "redcap_event_name", "reg_age", "reg_grp",
+  "hw_wght", "hw_hght", "dem_sex", "dem_eth",
+  "dem_ethwht", "dem_ethblck", "dem_ethasn", "dem_ethmix", "dem_ethoth",
+  "dem_ukdiag1", "dem_ukdiag2", "dem_ukdiag3", "dem_ukdiag4", "dem_ukdiag5", "dem_ukdiag6",
+  "ectrt_corti1", "ectrt_corti1cls", "ectrt_add1", "ectrt_corti1cls_2", "ectrt_add2", "ectrt_corti1cls_3",
+  "ectrt_calci1", "ectrt_cakci1drg", "ectrt_calci2", "ectrt_cakci2drg_2", "ectrt_calci3", "ectrt_cakci3drg_3",
+  "ectrt_st", "ectrt_st_no", "ectrt_st_add1",
+  "mh_asthma", "mh_rhino", "mh_fdalle", "mh_ctalle", "mh_slpdist",
+  "sbfa_twel", "sbfa_twel_det2", "sbfa_arm_flux1", "sbfa_arm_flux2", "sbfa_arm_flux3",
+  "sbfa_arm_cur", "sbfa_temp", "sbfa_humidity",
+  "sbfa_ph", "sbfa_ph_det", "sbfa_ph1", "sbfa_ph2", "sbfa_ph3",
+  "se_easi", "bmsi_adverse_score", "bmsi_capable_score", "bmsi_response_score",
+  "btms_bm_score", "btms_bthreat_score", "btms_tscore",
+  "vas_score", "skinqol_used", "skinqol_score", "patientreported_quality_of_life_measures_complete",
+  "sdc_srbd_scale", "sdc_sleepiness_scale", "sdc_restless_leg_scale",
+  "sdc_mtainsc", "sdc_mtainsc_tscore",
+  "sdsc_breath", "sdc_breath_tscore", "sdsc_arousal", "sdc_arousal_tscore",
+  "sdsc_transit", "sdc_transit_tscore", "sdsc_somnol", "sdc_somnol_tscore",
+  "sdsc_hyper", "sdc_hyper_tscore", "sdsc_tscore", "total_t_score",
+  "ehi_tscore", "wasi_fsiq4", "gonogo_resp", "simon_presp",
+  "cpt_prerrors", "mack_mskips", "mack_iskips"
+)
+```
+
+Then filter for those variables only.
+
+```{r}
+# Subset only the selected variables
+redcap_core_vars <- redcap_filtered %>%
+  select(all_of(keep_vars))
+
+# View preview
+redcap_core_vars
+```
+
+Lastly, save as redcap_core_vars.csv
+
+```{r}
+# Save cleaned core dataset
+write_csv(redcap_core_vars, "data/cleaned/redcap_core_vars.csv")
+```
+
+## Cleaning
+
+### Renaming Subject IDs and Event Names
+
+Throughout the rest of the study, the subject IDs are in the format MSXX. We want that to be consistent within this database, so we will change the names from 728-X.
+
+There is also an unnecessary "*arm*\_1" in every event name row, which we will remove.
+
+```{r}
+# Clean subject_id and redcap_event_name, save as new object
+redcap_cleaned <- redcap_core_vars %>%
+  # Convert subject_id like "728-X" → "MSXX"
+  mutate(subject_id = str_pad(str_extract(subject_id, "\\d+$"), width = 2, pad = "0"),
+         subject_id = paste0("MS", subject_id)) %>%
+  # Remove "_arm_1" from redcap_event_name
+  mutate(redcap_event_name = str_remove(redcap_event_name, "_arm_1"))
+
+# Preview to ensure changes made
+redcap_cleaned
+```
+
+### Adding in a Visit ID
+
+```{r}
+# Add visit_id (e.g., MS01_V1) based on cleaned event names
+redcap_cleaned <- redcap_cleaned %>%
+  mutate(
+    visit_number = case_when(
+      redcap_event_name == "baseline__visit_1" ~ "V1",
+      redcap_event_name == "6_month_followup" ~ "V2",
+      TRUE ~ NA_character_
+    ),
+    visit_id = paste0(subject_id, "_", visit_number)
+  ) %>%
+  relocate(visit_id, .after = redcap_event_name)
+
+# Preview to ensure changes made
+redcap_cleaned %>% 
+  pull(visit_id) %>% 
+  head(10)
+
+# Save cleaned dataset
+write_csv(redcap_cleaned, "data/cleaned/redcap_cleaned.csv")
+```
