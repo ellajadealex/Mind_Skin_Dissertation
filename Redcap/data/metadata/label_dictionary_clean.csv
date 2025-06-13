@@ -1,0 +1,87 @@
+human readable,snake_case,clean
+Mind & Skin ID,subject_id,subject_id
+Event Name,redcap_event_name,visit_number
+_age,reg_age,age
+Subject group,reg_grp,group
+Weight (kg),hw_wght,weight
+Height (cm),hw_hght,height
+Sex at birth,dem_sex,sex
+Ethnicity,dem_eth,eth
+White,dem_ethwht,eth_wht
+"Black, Black British, Caribbean or African",dem_ethblck,eht_blck
+Asian or Asian British,dem_ethasn,eth_asn
+Mixed or multiple ethnic groups,dem_ethmix,eth_mix
+Other ethnic group,dem_ethoth,eth_oth
+1. An itchy skin condition in the last year*,dem_ukdiag1,ukdiag1
+2. Visual flexural dermatitis,dem_ukdiag2,ukdiag2
+3. History of flexural involvement,dem_ukdiag3,ukdiag3
+4. History of generally dry skin,dem_ukdiag4,ukdiag4
+5. Personal history of atopic disease (children under 4 years: family history of atopic disease),dem_ukdiag5,ukdiag5
+6. Onset before the age of 2 years (not used if child aged < 4 years),dem_ukdiag6,ukdiag6
+1. Corticosteroid/s ?,ectrt_corti1,corti1
+Potency:,ectrt_corti1cls,corti1_potency
+Add another corticosteriod?,ectrt_add1,corti2
+Potency,ectrt_corti1cls_2,corti2_potency
+Add another steroid?,ectrt_add2,corti3
+Potency,ectrt_corti1cls_3,corti3_potency
+2. Calcineurin inhibitor/s ?,ectrt_calci1,calci1
+Calicineurin drug 1,ectrt_cakci1drg,calci1_name
+Add another calcineurin inhibitor?,ectrt_calci2,calci2
+Calicineurin drug 2,ectrt_cakci2drg_2,calci2_name
+Add another calcineurin inhibitor?,ectrt_calci3,calci3
+Calicineurin drug 3,ectrt_cakci3drg_3,calci3_name
+Is the patient starting systemic therapy?,ectrt_st,st
+1. Add systemic therapy?,ectrt_st_add1,st_add
+Asthma,mh_asthma,mh_asthma
+Allergic rhino-conjunctivitis (hayfever),mh_rhino,mh_rhino
+Food allergies,mh_fdalle,mh_fdalle
+Contact allergies,mh_ctalle,mh_ctalle
+Does the patient have a history of sleep disturbance?,mh_slpdist,mh_slpdist
+Transepidermal (TEWL) water loss measurement (uninvolved skin left volar forearm),sbfa_twel,sbfa_twel
+"If yes, please select:",sbfa_twel_det2,sbfa_twel_side
+ARM 1 Flux (mg/meter sq * height),sbfa_arm_flux1,sbfa_arm_flux1
+ARM 2 Flux (mg/meter sq * height),sbfa_arm_flux2,sbfa_arm_flux2
+ARM 3 Flux (mg/meter sq * height),sbfa_arm_flux3,sbfa_arm_flux3
+Decent measurement curves?,sbfa_arm_cur,sbfa_arm_cur
+Temperature (◦C),sbfa_temp,sbfa_temp
+Room humidity (%),sbfa_humidity,sbfa_humidity
+PH meter reading (volar forearm),sbfa_ph,sbfa_ph
+"If yes, please select:",sbfa_ph_det,sbfa_ph_side
+PH measurment 1,sbfa_ph1,sbfa_ph1
+PH measurment 2,sbfa_ph2,sbfa_ph2
+PH measurment 3,sbfa_ph3,sbfa_ph3
+Total score,se_easi,easi_totscore
+"Body is an Adversary score:(mean of items : 1, 2, 3, 4)",bmsi_adverse_score,bmsi_adverse_score
+"Body is an Capable score:(mean of items : 5, 6)",bmsi_capable_score,bmsi_capable_score
+"Body is a Responsive score:(mean of items :7, 8)",bmsi_response_score,bmsi_response_score
+"Bodily monitoring score: (sum items: 1, 5, 7, 12, 14, 17)",btms_bm_score,btms_bmonit_score
+"Bodily threat appraisals score: (sum items : 2, 3, 4, 6, 8, 9, 10, 11, 13, 15, 16, 18, 19)",btms_bthreat_score,btms_bthreat_score
+Total score,btms_tscore,btms_totscore
+Total score,vas_score,vas_totscore
+Questionnaire used,skinqol_used,skinqol_used
+Total score,skinqol_score,skinqol_score
+Complete?,patientreported_quality_of_life_measures_complete,pr_qol_complete
+1. SRBD scale (including snoring and sleepiness subscales),sdc_srbd_scale,sdc_srbd_scale
+2. Sleepiness subscale,sdc_sleepiness_scale,sdc_sleepiness_scale
+3. Periodic Leg Movement/Restless Legs Syndrome scale,sdc_restless_leg_scale,sdc_restless_leg_scale
+"Disorders of initiating and maintaining sleep score (sum the score of the items 1,2,3,4,5,10,11)",sdc_mtainsc,sdc_mtainsc
+T-Score:,sdc_mtainsc_tscore,sdc_mtainsc_tscore
+"Sleep Related Breathing Disorders score (sum the score of the items 13,14,15)",sdsc_breath,sdsc_breath
+T-Score:,sdc_breath_tscore,sdc_breath_tscore
+"Disorders of arousal score (sum the score of the items 17,20,21)",sdsc_arousal,sdsc_arousal
+T-Score:,sdc_arousal_tscore,sdc_arousal_tscore
+"Sleep-Wake Transition Disorders score (sum the score of the items 6,7,8,12,18,19)",sdsc_transit,sdsc_transit
+T-Score:,sdc_transit_tscore,sdc_transit_tscore
+"Disorders of excessive somnolence score (sum the score of the items 22,23,24,25,26)",sdsc_somnol,sdsc_somnol
+T-Score:,sdc_somnol_tscore,sdc_somnol_tscore
+"Sleep Hyperhydrosis (sum the score of the items 9,16)",sdsc_hyper,sdsc_hyper
+T-Score:,sdc_hyper_tscore,sdc_hyper_tscore
+Total score,sdsc_tscore,sdsc_tscore
+Total T-Score:,total_t_score,total_tscore
+Total scoreLeft-handedness - Less than -40Ambidexterity=Between -40 and +40Right-handness=More than +40,ehi_tscore,ehi_totscore
+Total FSIQ-4 score,wasi_fsiq4,wasi_fsiq4_totscore
+Premature responses,gonogo_resp,gonogo_resp
+Premature responses,simon_presp,simon_presp
+Premature errors,cpt_prerrors,cpt_prerrors
+Number of missed skips,mack_mskips,mack_mskips
+Number of incorrect skips,mack_iskips,mack_iskips
