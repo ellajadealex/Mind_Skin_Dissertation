@@ -24,6 +24,7 @@ knitr::opts_knit$set(root.dir = normalizePath(".."))
 library(tidyverse)
 library(janitor)
 library(dplyr)
+library(readr)
 ```
 
 ### Loading Raw Data
@@ -102,7 +103,7 @@ keep_vars <- c(
   "dem_ukdiag1", "dem_ukdiag2", "dem_ukdiag3", "dem_ukdiag4", "dem_ukdiag5", "dem_ukdiag6",
   "ectrt_corti1", "ectrt_corti1cls", "ectrt_add1", "ectrt_corti1cls_2", "ectrt_add2", "ectrt_corti1cls_3",
   "ectrt_calci1", "ectrt_cakci1drg", "ectrt_calci2", "ectrt_cakci2drg_2", "ectrt_calci3", "ectrt_cakci3drg_3",
-  "ectrt_st", "ectrt_st_no", "ectrt_st_add1",
+  "ectrt_st", "ectrt_st_add1",
   "mh_asthma", "mh_rhino", "mh_fdalle", "mh_ctalle", "mh_slpdist",
   "sbfa_twel", "sbfa_twel_det2", "sbfa_arm_flux1", "sbfa_arm_flux2", "sbfa_arm_flux3",
   "sbfa_arm_cur", "sbfa_temp", "sbfa_humidity",
@@ -140,6 +141,28 @@ write_csv(redcap_core_vars, "data/cleaned/redcap_core_vars.csv")
 
 ## Cleaning
 
+### Labels
+
+```{r}
+# Load label dictionary
+label_dict <- read_csv("data/metadata/label_dictionary_clean.csv")
+
+# Create a named vector for renaming: names = new (clean), values = current (snake_case)
+rename_vector <- setNames(label_dict$snake_case, label_dict$clean)
+
+# Safety check: preview which columns will be renamed
+matched_cols <- intersect(names(rename_vector), colnames(redcap_core_vars))
+cat("Columns that will be renamed:\n")
+print(rename_vector[matched_cols])
+
+# Rename the columns
+redcap_clean_labels <- redcap_core_vars %>%
+  rename(any_of(rename_vector))
+
+# Preview result
+redcap_clean_labels
+```
+
 ### Renaming Subject IDs and Event Names
 
 Throughout the rest of the study, the subject IDs are in the format MSXX. We want that to be consistent within this database, so we will change the names from 728-X.
@@ -148,37 +171,223 @@ There is also an unnecessary "*arm*\_1" in every event name row, which we will r
 
 ```{r}
 # Clean subject_id and redcap_event_name, save as new object
-redcap_cleaned <- redcap_core_vars %>%
-  # Convert subject_id like "728-X" → "MSXX"
-  mutate(subject_id = str_pad(str_extract(subject_id, "\\d+$"), width = 2, pad = "0"),
-         subject_id = paste0("MS", subject_id)) %>%
-  # Remove "_arm_1" from redcap_event_name
-  mutate(redcap_event_name = str_remove(redcap_event_name, "_arm_1"))
-
-# Preview to ensure changes made
-redcap_cleaned
-```
-
-### Adding in a Visit ID
-
-```{r}
-# Add visit_id (e.g., MS01_V1) based on cleaned event names
-redcap_cleaned <- redcap_cleaned %>%
+redcap_clean <- redcap_clean_labels %>%
   mutate(
+    # Convert subject_id like "728-X" → "MSXX"
+    subject_id = str_pad(str_extract(subject_id, "\\d+$"), width = 2, pad = "0"),
+    subject_id = paste0("MS", subject_id),
+
+    # Convert visit_number (already renamed) into numeric ID: 1 = baseline, 2 = follow-up
     visit_number = case_when(
-      redcap_event_name == "baseline__visit_1" ~ "V1",
-      redcap_event_name == "6_month_followup" ~ "V2",
-      TRUE ~ NA_character_
-    ),
-    visit_id = paste0(subject_id, "_", visit_number)
-  ) %>%
-  relocate(visit_id, .after = redcap_event_name)
+      visit_number == "baseline_visit_1" ~ 1L,
+      visit_number == "6_month_followup" ~ 2L,
+      TRUE ~ NA_integer_
+    )
+  )
 
 # Preview to ensure changes made
-redcap_cleaned %>% 
-  pull(visit_id) %>% 
-  head(10)
+redcap_clean
+
 
 # Save cleaned dataset
-write_csv(redcap_cleaned, "data/cleaned/redcap_cleaned.csv")
+write_csv(redcap_clean, "data/cleaned/redcap_clean.csv")
+```
+
+### Further Name Cleaning
+
+## Database Schema
+
+### Core Tables
+
+#### Participant
+
+```{sql}
+CREATE TABLE participant (
+    participant_id INT PRIMARY KEY AUTO_INCREMENT,
+    subject_id VARCHAR(10) NOT NULL,
+    age DECIMAL(4,2),
+    grp INTEGER,
+    sex INTEGER,
+    mh_asthma INTEGER,
+    mh_rhino INTEGER,
+    mh_fdalle INTEGER,
+    mh_ctalle INTEGER,
+    mh_slpdist INTEGER,
+);
+```
+
+ethnicity
+
+```         
+eth INTEGER,
+ethwht INTEGER,
+ethblck INTEGER,
+ethasn INTEGER,
+ethmix INTEGER,
+ethoth INTEGER,
+```
+
+#### VIsit
+
+```{sql}
+CREATE TABLE visit (
+    visit_id INT PRIMARY KEY AUTO_INCREMENT,
+    visit_number VARCHAR(50) NOT NULL,
+    hw_wght DECIMAL(6,2),
+    hw_hght DECIMAL(6,2)
+    
+    FOREIGN KEY (participant_id) REFERENCES participants(subject_id)
+);
+```
+
+#### UK Diagnostic Criteria
+
+```{sql}
+CREATE TABLE uk_diagnostic_criteria (
+    ukdiag1 INTEGER,
+    ukdiag2 INTEGER,
+    ukdiag3 INTEGER,
+    ukdiag4 INTEGER,
+    ukdiag5 INTEGER,
+    ukdiag6 INTEGER
+    
+    FOREIGN KEY (visit_id) REFERENCES visit(visit_id)
+);
+```
+
+#### Treatments
+
+```{sql}
+CREATE TABLE treatments (
+    corti1 INTEGER,
+    corti1_potency INTEGER,
+    corti2 INTEGER,
+    corti2_potency INTEGER,
+    corti3 INTEGER,
+    corti3_potency INTEGER,
+    calci1 INTEGER,
+    cakci1_name VARCHAR(50),
+    calci2 INTEGER,
+    cakci2_name VARCHAR(50),
+    calci3 INTEGER,
+    calci3_potency VARCHAR(50),
+    ectrt_st INTEGER,
+    ectrt_st_no INTEGER,
+    ectrt_st_add1 INTEGER,
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
+```
+
+OR
+
+```{sql}
+
+CREATE TABLE treatments (
+    treatment_id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    visit_id VARCHAR(20) NOT NULL,
+    treatment_type VARCHAR(20) NOT NULL, -- 'corticosteroid', 'calcineurin', 'steroid'
+    treatment_number INTEGER NOT NULL, -- 1, 2, 3 for multiple treatments
+    strength_class INTEGER
+    
+    FOREIGN KEY (visit_id) REFERENCES visit(visit_id)
+);
+```
+
+#### Skin Assessments
+
+```{sql}
+CREATE TABLE skin_assessments (
+    skin_id VARCHAR(20) PRIMARY KEY,
+    sbfa_twel INTEGER,
+    sbfa_twel_det2 INTEGER,
+    sbfa_arm_flux1 DECIMAL(8,3),
+    sbfa_arm_flux2 DECIMAL(8,3),
+    sbfa_arm_flux3 DECIMAL(8,3),
+    sbfa_arm_cur INTEGER,
+    sbfa_temp DECIMAL(5,2),
+    sbfa_humidity DECIMAL(5,2),
+    sbfa_ph INTEGER,
+    sbfa_ph_det INTEGER,
+    sbfa_ph1 DECIMAL(4,2),
+    sbfa_ph2 DECIMAL(4,2),
+    sbfa_ph3 DECIMAL(4,2),
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
+```
+
+#### Clinical Severity Scores
+
+```{sql}
+CREATE TABLE clinical_severity_scores (
+    severity_id VARCHAR(20) PRIMARY KEY,
+    se_easi DECIMAL(5,2),
+    vas_score INTEGER,
+    skinqol_used INTEGER,
+    skinqol_score INTEGER,
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
+```
+
+#### Psychological Assessments
+
+```{sql}
+CREATE TABLE psychological_assessments (
+    psych_id VARCHAR(20) PRIMARY KEY,
+    bmsi_adverse_score DECIMAL(5,2),
+    bmsi_capable_score INTEGER,
+    bmsi_response_score DECIMAL(5,2),
+    btms_bm_score INTEGER,
+    btms_bthreat_score INTEGER,
+    btms_tscore INTEGER,
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
+```
+
+#### Sleep Assessments
+
+```{sql}
+CREATE TABLE sleep_assessments (
+    sleep_id VARCHAR(20) PRIMARY KEY,
+    sdc_srbd_scale DECIMAL(5,3),
+    sdc_sleepiness_scale DECIMAL(4,3),
+    sdc_restless_leg_scale DECIMAL(4,3),
+    sdc_mtainsc INTEGER,
+    sdc_mtainsc_tscore INTEGER,
+    sdsc_breath INTEGER,
+    sdc_breath_tscore INTEGER,
+    sdsc_arousal INTEGER,
+    sdc_arousal_tscore INTEGER,
+    sdsc_transit INTEGER,
+    sdc_transit_tscore INTEGER,
+    sdsc_somnol INTEGER,
+    sdc_somnol_tscore INTEGER,
+    sdsc_hyper INTEGER,
+    sdc_hyper_tscore INTEGER,
+    sdsc_tscore INTEGER,
+    total_t_score INTEGER,
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
+```
+
+#### Cognitive Assessments
+
+```{sql}
+
+CREATE TABLE cognitive_assessments (
+    cognitive_id VARCHAR(20) PRIMARY KEY,
+    ehi_tscore DECIMAL(6,2),
+    wasi_fsiq4 INTEGER,
+    gonogo_resp INTEGER,
+    simon_presp INTEGER,
+    cpt_prerrors INTEGER,
+    mack_mskips INTEGER,
+    mack_iskips INTEGER,
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
 ```

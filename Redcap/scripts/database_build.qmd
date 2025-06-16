@@ -1,0 +1,199 @@
+---
+title: "database build"
+format: html
+editor: visual
+---
+
+#### Participant
+
+```{sql}
+CREATE TABLE participant (
+    participant_id INT PRIMARY KEY AUTO_INCREMENT,
+    subject_id VARCHAR(10) NOT NULL,
+    age DECIMAL(4,2),
+    grp INTEGER,
+    sex INTEGER,
+    mh_asthma INTEGER,
+    mh_rhino INTEGER,
+    mh_fdalle INTEGER,
+    mh_ctalle INTEGER,
+    mh_slpdist INTEGER,
+);
+```
+
+ethnicity
+
+```         
+eth INTEGER,
+ethwht INTEGER,
+ethblck INTEGER,
+ethasn INTEGER,
+ethmix INTEGER,
+ethoth INTEGER,
+```
+
+#### VIsit
+
+```{sql}
+CREATE TABLE visit (
+    visit_id INT PRIMARY KEY AUTO_INCREMENT,
+    visit_number VARCHAR(50) NOT NULL,
+    weight DECIMAL(6,2),
+    height DECIMAL(6,2)
+    
+    FOREIGN KEY (participant_id) REFERENCES participants(subject_id)
+);
+```
+
+#### UK Diagnostic Criteria
+
+```{sql}
+CREATE TABLE uk_diagnostic_criteria (
+    ukdiag_id INT PRIMARY KEY AUTO_INCREMENT,
+    ukdiag1 INTEGER,
+    ukdiag2 INTEGER,
+    ukdiag3 INTEGER,
+    ukdiag4 INTEGER,
+    ukdiag5 INTEGER,
+    ukdiag6 INTEGER
+    
+    FOREIGN KEY (visit_id) REFERENCES visit(visit_id)
+);
+```
+
+#### Treatments
+
+```{sql}
+CREATE TABLE treatment (
+    treatment_id INT PRIMARY KEY AUTO_INCREMENT,
+    corti1 INTEGER,
+    corti1_potency INTEGER,
+    corti2 INTEGER,
+    corti2_potency INTEGER,
+    corti3 INTEGER,
+    corti3_potency INTEGER,
+    calci1 INTEGER,
+    cakci1_name VARCHAR(50),
+    calci2 INTEGER,
+    cakci2_name VARCHAR(50),
+    calci3 INTEGER,
+    calci3_potency VARCHAR(50),
+    st INTEGER,
+    st_add INTEGER,
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
+```
+
+OR
+
+```{sql}
+
+CREATE TABLE treatments (
+    treatment_id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    treatment_type VARCHAR(20) NOT NULL, -- 'corticosteroid', 'calcineurin'
+    treatment_number INTEGER NOT NULL, -- 1, 2, 3 for multiple treatments
+    strength_class INTEGER,
+    treatment_name VARCHAR (20),
+    
+    FOREIGN KEY (visit_id) REFERENCES visit(visit_id)
+);
+```
+
+#### Skin Assessments
+
+```{sql}
+CREATE TABLE skin_assessments (
+    skin_id INTEGER PRIMARY KEY AUTO_INTEGER,
+    sbfa_twel INTEGER,
+    sbfa_twel_side INTEGER,
+    sbfa_arm_flux1 DECIMAL(8,3),
+    sbfa_arm_flux2 DECIMAL(8,3),
+    sbfa_arm_flux3 DECIMAL(8,3),
+    sbfa_arm_cur INTEGER,
+    sbfa_temp DECIMAL(5,2),
+    sbfa_humidity DECIMAL(5,2),
+    sbfa_ph INTEGER,
+    sbfa_ph_side INTEGER,
+    sbfa_ph1 DECIMAL(4,2),
+    sbfa_ph2 DECIMAL(4,2),
+    sbfa_ph3 DECIMAL(4,2),
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
+```
+
+#### Clinical Severity Scores
+
+```{sql}
+CREATE TABLE clinical_severity_scores (
+    severity_id INT PRIMARY KEY AUTO_INCREMENT,
+    easi_totscore DECIMAL(5,2),
+    vas_totscore INTEGER,
+    skinqol_used INTEGER,
+    skinqol_score INTEGER,
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
+```
+
+#### Psychological Assessments
+
+```{sql}
+CREATE TABLE psychological_assessments (
+    psych_id INT PRIMARY KEY AUTO_INCREMENT,
+    bmsi_adverse_score DECIMAL(5,2),
+    bmsi_capable_score INTEGER,
+    bmsi_response_score DECIMAL(5,2),
+    btms_bm_score INTEGER,
+    btms_bthreat_score INTEGER,
+    btms_totscore INTEGER,
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
+```
+
+#### Sleep Assessments
+
+```{sql}
+CREATE TABLE sleep_assessments (
+    sleep_id INT PRIMARY KEY AUTO_INCREMENT,
+    sdc_srbd_scale DECIMAL(5,3),
+    sdc_sleepiness_scale DECIMAL(4,3),
+    sdc_restless_leg_scale DECIMAL(4,3),
+    sdc_mtainsc INTEGER,
+    sdc_mtainsc_tscore INTEGER,
+    sdsc_breath INTEGER,
+    sdc_breath_tscore INTEGER,
+    sdsc_arousal INTEGER,
+    sdc_arousal_tscore INTEGER,
+    sdsc_transit INTEGER,
+    sdc_transit_tscore INTEGER,
+    sdsc_somnol INTEGER,
+    sdc_somnol_tscore INTEGER,
+    sdsc_hyper INTEGER,
+    sdc_hyper_tscore INTEGER,
+    sdsc_tscore INTEGER,
+    total_t_score INTEGER,
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
+```
+
+#### Cognitive Assessments
+
+```{sql}
+
+CREATE TABLE cognitive_assessments (
+    cognitive_id INT PRIMARY KEY AUTO_INCREMENT,
+    ehi_tscore DECIMAL(6,2),
+    wasi_fsiq4 INTEGER,
+    gonogo_resp INTEGER,
+    simon_presp INTEGER,
+    cpt_prerrors INTEGER,
+    mack_mskips INTEGER,
+    mack_iskips INTEGER,
+    
+    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+);
+```
