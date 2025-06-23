@@ -6,6 +6,10 @@
 # Dreem Reports
 Dreem/data/raw/**/**/**/reports
 
+# Dreem Test Reports & DB Outputs
+Dreem_Test/data/raw/**/**/**/reports
+Dreem_Test/data/processed/luna_outputs/*
+
 # Luna DB outputs
 Dreem/data/processed/luna_outputs/*
 
