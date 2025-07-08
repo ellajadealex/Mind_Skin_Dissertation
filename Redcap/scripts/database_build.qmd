@@ -4,196 +4,335 @@ format: html
 editor: visual
 ---
 
-#### Participant
+# Schema
+
+## Measurement System
+
+### Tables:
+
+-   **`Domain`**\
+
+    Broad conceptual category for assessments (e.g., "Skin", "Sleep", "Cognition", "QOL").\
+
+    ▸ Helps organize assessments and group analyses.
+
+-   **`Assessment`**\
+
+    Represents an instrument/questionnaire used to measure a domain (e.g., “POEM”, “TEWL”, “BSMI”).\
+
+    ▸ Linked to one domain; stores instrument-level metadata like name and description.
+
+-   **`Measurement`**\
+
+    Represents each variable/item from a given assessment.\
+
+    ▸ Examples: `poem_score`, `ph_value`, `bmsi_adverse_score`\
+
+    ▸ Includes expected data type, label, and unit (if applicable).\
+
+    ▸ **Why separate from Visit_Measurement?** This table is static metadata — not data values.
+
+-   **`Visit_Measurement`**\
+
+    Stores *actual data collected* during a visit for a specific measurement.\
+
+    ▸ Can contain a `value_numeric` (e.g., EASI score = 8.2) or a `value_text` (e.g., “Moderate”).\
+
+    ▸ `is_complete` indicates if the full instrument was completed at that visit.\
+
+    ▸ **CHECK constraint** ensures only one of `value_numeric` or `value_VARCHAR` is filled.\
+
+    ▸ Foreign keys link it to both the `visit` and the `measurement`.
+
+### Relationships:
+
+-   `Domain` → `Assessment` (1:M)
+
+-   `Assessment` → `Measurement` (1:M)
+
+-   `Measurement` → `Visit_Measurement` (1:M)
+
+-   `Visit` → `Visit_Measurement` (1:M)
+
+### Script:
 
 ```{sql}
-CREATE TABLE participant (
-    participant_id INT PRIMARY KEY AUTO_INCREMENT,
-    subject_id VARCHAR(10) NOT NULL,
-    age DECIMAL(4,2),
-    grp INTEGER,
-    sex INTEGER,
-    mh_asthma INTEGER,
-    mh_rhino INTEGER,
-    mh_fdalle INTEGER,
-    mh_ctalle INTEGER,
-    mh_slpdist INTEGER,
+CREATE TABLE Domain (
+    domain_id INT AUTO_INCREMENT PRIMARY KEY,
+    domain_name VARCHAR NOT NULL UNIQUE -- e.g., 'Skin', 'Cognitive', 'Sleep', 'QoL'
+);
+
+CREATE TABLE Assessment (
+    assessment_id INT AUTO_INCREMENT PRIMARY KEY,
+    domain_id INT NOT NULL REFERENCES Domain(domain_id),
+    name VARCHAR NOT NULL,            -- e.g., 'EASI', 'BMSI'
+    description VARCHAR
+);
+
+CREATE TABLE Measurement (
+    measurement_id INT AUTO_INCREMENT PRIMARY KEY,
+    assessment_id INT NOT NULL REFERENCES Assessment(assessment_id),
+    variable_name VARCHAR NOT NULL,   -- e.g., 'easi_score', 'bmsi_total_score'
+    variable_label VARCHAR,           -- e.g., 'Total EASI Score'
+    data_type VARCHAR NOT NULL CHECK (data_type IN ('decimal', 'int', 'VARCHAR', 'boolean')),
+    unit VARCHAR,
+    UNIQUE(assessment_id, variable_name)
+);
+
+CREATE TABLE Visit_Measurement (
+    visit_measurement_id INT AUTO_INCREMENT PRIMARY KEY,
+    visit_id INT NOT NULL REFERENCES Visit(visit_id),
+    measurement_id INT NOT NULL REFERENCES Measurement(measurement_id),
+    value_numeric DECIMAL,
+    value_VARCHAR VARCHAR,
+    is_complete BOOLEAN DEFAULT FALSE,
+    CHECK (
+        value_numeric IS NOT NULL OR value_VARCHAR IS NOT NULL
+    )
 );
 ```
 
-ethnicity
+## Participant & Demographics
 
-```         
-eth INTEGER,
-ethwht INTEGER,
-ethblck INTEGER,
-ethasn INTEGER,
-ethmix INTEGER,
-ethoth INTEGER,
-```
+### Tables:
 
-#### VIsit
+-   **`Visit`**\
+
+    Stores each visit (e.g., baseline, post-treatment) per participant.\
+
+    ▸ Additional visit-level data like height/weight can be stored here.
+
+-   **`Participant`**\
+
+    Stores each subject in the study.\
+
+    ▸ Includes the external `subject_id` (e.g., MS01), `age`, `group_code`, and `sex_code`.\
+
+    ▸ Uses coded values for group/sex for normalization.
+
+-   **`Sex_Code`**\
+
+    Lookup table for sex at birth (e.g., Male, Female, Undifferentiated)
+
+-   **`Group_Code`**\
+
+    Lookup table for study group (e.g., Topical therapy, Immuno-modulatory therapy, Healthy control).
+
+### Relationships:
+
+-   `Participant` → `Visit` (1:M)
+
+-   `Visit` → `Visit_Measurement` (1:M)
+
+**Design Notes:**
+
+-   One visit may generate multiple assessments (one-to-many).
+
+-   Separation allows for longitudinal tracking and repeated measures.
+
+-   Use lookup tables for query efficiency, standardized controlled vocabularies, and making system resilient to typos
+
+### Script:
 
 ```{sql}
-CREATE TABLE visit (
-    visit_id INT PRIMARY KEY AUTO_INCREMENT,
-    visit_number VARCHAR(50) NOT NULL,
-    weight DECIMAL(6,2),
-    height DECIMAL(6,2)
-    
-    FOREIGN KEY (participant_id) REFERENCES participants(subject_id)
+CREATE TABLE Sex_Code (
+    sex_code INT PRIMARY KEY,
+    sex_label VARCHAR NOT NULL UNIQUE -- e.g., 'Male', 'Female', 'Undifferentiated'
+);
+
+CREATE TABLE Group_Code (
+    group_code INT PRIMARY KEY,
+    group_label VARCHAR NOT NULL UNIQUE -- e.g., 'Topical therapy', 'Immuno-modulatory therapy', 'Healthy control'
+);
+
+CREATE TABLE Participant (
+    participant_id INT AUTO_INCREMENT PRIMARY KEY,
+    subject_id VARCHAR(4) NOT NULL UNIQUE, -- e.g., 'MS01'
+    age DECIMAL,
+    group_code INT REFERENCES Group_Code(group_code),
+    sex_code INT REFERENCES Sex_Code(sex_code)
+);
+
+CREATE TABLE Visit (
+    visit_id INT AUTO_INCREMENT PRIMARY KEY,
+    participant_id INT NOT NULL REFERENCES Participant(participant_id),
+    number INT NOT NULL,           -- visit number (1, 2, etc.)
+    height DECIMAL,
+    weight DECIMAL,
+    UNIQUE(participant_id, number)
 );
 ```
 
-#### UK Diagnostic Criteria
+## Ethnicity System
+
+Captures participants' self-identified ethnicity and sub-ethnicity per UK standards.
+
+### Tables:
+
+-   **`Ethnicity_Group`**\
+
+    High-level category (e.g., "White", "Asian", "Black").
+
+-   **`Ethnicity_Subtype`**\
+
+    Specific subtypes within a group (e.g., "Indian", "Pakistani", "Caribbean").\
+
+    ▸ Each subtype links to one group.
+
+-   **`Participant_Ethnicity`**\
+
+    One-to-many bridge table between `Participant` and `Ethnicity_Subtype`.\
+
+    ▸ A participant can report multiple ethnicities (e.g., mixed heritage).\
+
+    ▸ Ensures full normalization and flexibility.
 
 ```{sql}
-CREATE TABLE uk_diagnostic_criteria (
-    ukdiag_id INT PRIMARY KEY AUTO_INCREMENT,
-    ukdiag1 INTEGER,
-    ukdiag2 INTEGER,
-    ukdiag3 INTEGER,
-    ukdiag4 INTEGER,
-    ukdiag5 INTEGER,
-    ukdiag6 INTEGER
-    
-    FOREIGN KEY (visit_id) REFERENCES visit(visit_id)
+CREATE TABLE Ethnicity_Group (
+    ethnicity_group_id INT PRIMARY KEY,
+    category_name VARCHAR NOT NULL UNIQUE -- e.g., 'Asian', 'White'
+);
+
+CREATE TABLE Ethnicity_Subtype (
+    ethnicity_subtype_id INT AUTO_INCREMENT PRIMARY KEY,
+    ethnicity_group_id INT NOT NULL REFERENCES Ethnicity_Group(ethnicity_group_id),
+    subtype_name VARCHAR NOT NULL -- e.g., 'Chinese', 'Pakistani'
+);
+
+CREATE TABLE Participant_Ethnicity (
+    participant_ethnicity_id INT AUTO_INCREMENT PRIMARY KEY,
+    participant_id INT NOT NULL REFERENCES Participant(participant_id),
+    ethnicity_subtype_id INT NOT NULL REFERENCES Ethnicity_Subtype(ethnicity_subtype_id),
 );
 ```
 
-#### Treatments
+## Medical History & Diagnostic Criteria
+
+Tracks participant-reported or clinician-diagnosed conditions.
+
+### Tables:
+
+-   **`Condition`**\
+
+    Lookup table for conditions (e.g., "Asthma", "Sleep disturbance").
+
+-   **`Participant_Condition`**\
+
+    Indicates whether a participant has each condition.\
+
+    ▸ `has_condition` boolean allows for explicit no/yes recording.
+
+-   **`Diagnostic_Criteria`**\
+
+    Stores each diagnostic rule/criterion.\
+
+    ▸ Examples: “Personal history of flexural involvement”, “Visible flexural eczema”.
+
+-   **`Participant_Diagnostic`**\
+
+    Records whether a participant meets each criterion.\
+
+    ▸ Enables robust criteria-based cohort definitions.
 
 ```{sql}
-CREATE TABLE treatment (
-    treatment_id INT PRIMARY KEY AUTO_INCREMENT,
-    corti1 INTEGER,
-    corti1_potency INTEGER,
-    corti2 INTEGER,
-    corti2_potency INTEGER,
-    corti3 INTEGER,
-    corti3_potency INTEGER,
-    calci1 INTEGER,
-    cakci1_name VARCHAR(50),
-    calci2 INTEGER,
-    cakci2_name VARCHAR(50),
-    calci3 INTEGER,
-    calci3_potency VARCHAR(50),
-    st INTEGER,
-    st_add INTEGER,
-    
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+CREATE TABLE Condition (
+    condition_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR NOT NULL UNIQUE -- e.g., 'asthma', 'contact_allergy', 'sleep_disturbance'
+);
+
+CREATE TABLE Participant_Condition (
+    participant_condition_id INT AUTO_INCREMENT PRIMARY KEY,
+    participant_id INT NOT NULL REFERENCES Participant(participant_id),
+    condition_id INT NOT NULL REFERENCES Condition(condition_id),
+    has_condition BOOLEAN DEFAULT FALSE,
+);
+
+CREATE TABLE Diagnostic_Criteria (
+    diagnostic_criteria_id INT AUTO_INCREMENT PRIMARY KEY,
+    description VARCHAR NOT NULL -- e.g., 'Visible flexural eczema', 'Personal history of flexural involvement'
+);
+
+CREATE TABLE Participant_Diagnostic (
+    participant_diagnostic_id INT AUTO_INCREMENT PRIMARY KEY,
+    participant_id INT NOT NULL REFERENCES Participant(participant_id),
+    diagnostic_criteria_id INT NOT NULL REFERENCES Diagnostic_Criteria(diagnostic_criteria_id),
+    met BOOLEAN DEFAULT FALSE,
 );
 ```
 
-OR
+## Medication Tracking
+
+Captures medication exposure history and treatment regimens.
+
+### Tables:
+
+-   **`Medication`**\
+
+    Stores metadata on each treatment type:\
+
+    ▸ `type`: Corticosteroid, Calcineurin inhibitor, Systemic therapy\
+
+    ▸ `potency`: Mild, Potent, Ultra-potent
+
+-   **`Participant_Medication`**\
+
+    Bridge table for participant-medication history.\
+
+    ▸ Includes `sequence` to model order of exposure (useful for temporal analysis).
 
 ```{sql}
+CREATE TABLE Medication (
+    medication_id INT AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR NOT NULL, -- e.g., 'Corticosteroid', 'Systemic therapy', 'Calcineurin inhibitor'
+    name VARCHAR,          -- e.g., 'Tacrolimus', 'Methotrexate'
+    potency VARCHAR        -- e.g., 'Mild', 'Potent', 'Ultra-potent'
+);
 
-CREATE TABLE treatments (
-    treatment_id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    treatment_type VARCHAR(20) NOT NULL, -- 'corticosteroid', 'calcineurin'
-    treatment_number INTEGER NOT NULL, -- 1, 2, 3 for multiple treatments
-    strength_class INTEGER,
-    treatment_name VARCHAR (20),
-    
-    FOREIGN KEY (visit_id) REFERENCES visit(visit_id)
+CREATE TABLE Participant_Medication (
+    participant_medication_id INT AUTO_INCREMENT PRIMARY KEY,
+    participant_id INT NOT NULL REFERENCES Participant(participant_id),
+    medication_id INT NOT NULL REFERENCES Medication(medication_id),
+    sequence INT,       -- e.g., '2' for 2nd corticosteroid
 );
 ```
 
-#### Skin Assessments
+# things to note
 
 ```{sql}
-CREATE TABLE skin_assessments (
-    skin_id INTEGER PRIMARY KEY AUTO_INTEGER,
-    sbfa_twel INTEGER,
-    sbfa_twel_side INTEGER,
-    sbfa_arm_flux1 DECIMAL(8,3),
-    sbfa_arm_flux2 DECIMAL(8,3),
-    sbfa_arm_flux3 DECIMAL(8,3),
-    sbfa_arm_cur INTEGER,
-    sbfa_temp DECIMAL(5,2),
-    sbfa_humidity DECIMAL(5,2),
-    sbfa_ph INTEGER,
-    sbfa_ph_side INTEGER,
-    sbfa_ph1 DECIMAL(4,2),
-    sbfa_ph2 DECIMAL(4,2),
-    sbfa_ph3 DECIMAL(4,2),
-    
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
-);
+CASE
+  WHEN ehi_tscore < -40 THEN 'left'
+  WHEN ehi_tscore BETWEEN -40 AND 40 THEN 'ambidextrous'
+  WHEN ehi_tscore > 40 THEN 'right'
+  ELSE 'unknown'
+END AS handedness
+
 ```
 
-#### Clinical Severity Scores
+Indexes??
 
 ```{sql}
-CREATE TABLE clinical_severity_scores (
-    severity_id INT PRIMARY KEY AUTO_INCREMENT,
-    easi_totscore DECIMAL(5,2),
-    vas_totscore INTEGER,
-    skinqol_used INTEGER,
-    skinqol_score INTEGER,
-    
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
-);
+-- Foreign keys
+Visit_Assessment(visit_id)
+Visit_Assessment(assessment_id)
+Assessment(domain_id)
+Visit(participant_id)
+Participant_Ethnicity(participant_id)
+Participant_Ethnicity(ethnicity_subtype_id)
+Ethnicity_Subtype(ethnicity_category_id)
+Participant_Medication(participant_id)
+Participant_Medication(medication_id)
+
+-- Optional performance indexes (if queries slow down)
+Visit_Assessment(value_numeric)
+Visit_Assessment(value_text)
 ```
 
-#### Psychological Assessments
+**If `value_numeric` and `value_text` will never both be used for the same record**, you could eventually add a **check constraint or view** to enforce that.
 
-```{sql}
-CREATE TABLE psychological_assessments (
-    psych_id INT PRIMARY KEY AUTO_INCREMENT,
-    bmsi_adverse_score DECIMAL(5,2),
-    bmsi_capable_score INTEGER,
-    bmsi_response_score DECIMAL(5,2),
-    btms_bm_score INTEGER,
-    btms_bthreat_score INTEGER,
-    btms_totscore INTEGER,
-    
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
-);
-```
+what to do for questionaire used
 
-#### Sleep Assessments
+questions for xin yi:
 
-```{sql}
-CREATE TABLE sleep_assessments (
-    sleep_id INT PRIMARY KEY AUTO_INCREMENT,
-    sdc_srbd_scale DECIMAL(5,3),
-    sdc_sleepiness_scale DECIMAL(4,3),
-    sdc_restless_leg_scale DECIMAL(4,3),
-    sdc_mtainsc INTEGER,
-    sdc_mtainsc_tscore INTEGER,
-    sdsc_breath INTEGER,
-    sdc_breath_tscore INTEGER,
-    sdsc_arousal INTEGER,
-    sdc_arousal_tscore INTEGER,
-    sdsc_transit INTEGER,
-    sdc_transit_tscore INTEGER,
-    sdsc_somnol INTEGER,
-    sdc_somnol_tscore INTEGER,
-    sdsc_hyper INTEGER,
-    sdc_hyper_tscore INTEGER,
-    sdsc_tscore INTEGER,
-    total_t_score INTEGER,
-    
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
-);
-```
+-   do we need an "is_active" flag so that nothing has to be deleted – when tests are added/dropped (for now or the future)
 
-#### Cognitive Assessments
-
-```{sql}
-
-CREATE TABLE cognitive_assessments (
-    cognitive_id INT PRIMARY KEY AUTO_INCREMENT,
-    ehi_tscore DECIMAL(6,2),
-    wasi_fsiq4 INTEGER,
-    gonogo_resp INTEGER,
-    simon_presp INTEGER,
-    cpt_prerrors INTEGER,
-    mack_mskips INTEGER,
-    mack_iskips INTEGER,
-    
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
-);
-```
+-   can i make a combo of both sheets

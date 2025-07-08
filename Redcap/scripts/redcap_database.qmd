@@ -170,6 +170,9 @@ Throughout the rest of the study, the subject IDs are in the format MSXX. We wan
 There is also an unnecessary "*arm*\_1" in every event name row, which we will remove.
 
 ```{r}
+
+unique(redcap_clean_labels$visit_number)
+
 # Clean subject_id and redcap_event_name, save as new object
 redcap_clean <- redcap_clean_labels %>%
   mutate(
@@ -179,8 +182,8 @@ redcap_clean <- redcap_clean_labels %>%
 
     # Convert visit_number (already renamed) into numeric ID: 1 = baseline, 2 = follow-up
     visit_number = case_when(
-      visit_number == "baseline_visit_1" ~ 1L,
-      visit_number == "6_month_followup" ~ 2L,
+      visit_number == "baseline__visit_1_arm_1" ~ 1L,
+      visit_number == "6_month_followup_arm_1" ~ 2L,
       TRUE ~ NA_integer_
     )
   )
@@ -213,6 +216,20 @@ CREATE TABLE participant (
     mh_fdalle INTEGER,
     mh_ctalle INTEGER,
     mh_slpdist INTEGER,
+    corti1 INTEGER,
+    corti1_potency INTEGER,
+    corti2 INTEGER,
+    corti2_potency INTEGER,
+    corti3 INTEGER,
+    corti3_potency INTEGER,
+    calci1 INTEGER,
+    cakci1_name VARCHAR(50),
+    calci2 INTEGER,
+    cakci2_name VARCHAR(50),
+    calci3 INTEGER,
+    calci3_potency VARCHAR(50),
+    st INTEGER,
+    st_add INTEGER,
 );
 ```
 
@@ -225,6 +242,29 @@ ethblck INTEGER,
 ethasn INTEGER,
 ethmix INTEGER,
 ethoth INTEGER,
+
+```
+
+```{sql}
+CREATE TABLE ethnicity1(
+
+
+);
+```
+
+```{r}
+
+```
+
+```         
+
+ethnicity1
+ethnicity1_id 
+
+ethnicity_1_2
+
+ethnicity2
+ethnicity2_id
 ```
 
 #### VIsit
@@ -233,25 +273,8 @@ ethoth INTEGER,
 CREATE TABLE visit (
     visit_id INT PRIMARY KEY AUTO_INCREMENT,
     visit_number VARCHAR(50) NOT NULL,
-    hw_wght DECIMAL(6,2),
-    hw_hght DECIMAL(6,2)
     
     FOREIGN KEY (participant_id) REFERENCES participants(subject_id)
-);
-```
-
-#### UK Diagnostic Criteria
-
-```{sql}
-CREATE TABLE uk_diagnostic_criteria (
-    ukdiag1 INTEGER,
-    ukdiag2 INTEGER,
-    ukdiag3 INTEGER,
-    ukdiag4 INTEGER,
-    ukdiag5 INTEGER,
-    ukdiag6 INTEGER
-    
-    FOREIGN KEY (visit_id) REFERENCES visit(visit_id)
 );
 ```
 
@@ -271,9 +294,8 @@ CREATE TABLE treatments (
     cakci2_name VARCHAR(50),
     calci3 INTEGER,
     calci3_potency VARCHAR(50),
-    ectrt_st INTEGER,
-    ectrt_st_no INTEGER,
-    ectrt_st_add1 INTEGER,
+    st INTEGER,
+    st_add INTEGER,
     
     FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
 );
@@ -284,23 +306,25 @@ OR
 ```{sql}
 
 CREATE TABLE treatments (
-    treatment_id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    visit_id VARCHAR(20) NOT NULL,
-    treatment_type VARCHAR(20) NOT NULL, -- 'corticosteroid', 'calcineurin', 'steroid'
+    treatment_id INT PRIMARY KEY AUTO_INCREMENT,
+    treatment_type VARCHAR(20), -- 'corticosteroid', 'calcineurin'
     treatment_number INTEGER NOT NULL, -- 1, 2, 3 for multiple treatments
-    strength_class INTEGER
+    strength_class INTEGER,
+    treatment_name VARCHAR (20),
     
     FOREIGN KEY (visit_id) REFERENCES visit(visit_id)
 );
 ```
 
-#### Skin Assessments
+#### Measurement
 
 ```{sql}
-CREATE TABLE skin_assessments (
-    skin_id VARCHAR(20) PRIMARY KEY,
-    sbfa_twel INTEGER,
-    sbfa_twel_det2 INTEGER,
+CREATE TABLE assessment (
+    assessment_id INT PRIMARY KEY AUTO_INCREMENT,
+    weight DECIMAL(6,2),
+    height DECIMAL(6,2),
+    sbfa_twel INTEGER, 
+    sbfa_twel_side INTEGER,
     sbfa_arm_flux1 DECIMAL(8,3),
     sbfa_arm_flux2 DECIMAL(8,3),
     sbfa_arm_flux3 DECIMAL(8,3),
@@ -308,50 +332,20 @@ CREATE TABLE skin_assessments (
     sbfa_temp DECIMAL(5,2),
     sbfa_humidity DECIMAL(5,2),
     sbfa_ph INTEGER,
-    sbfa_ph_det INTEGER,
+    sbfa_ph_side INTEGER,
     sbfa_ph1 DECIMAL(4,2),
     sbfa_ph2 DECIMAL(4,2),
     sbfa_ph3 DECIMAL(4,2),
-    
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
-);
-```
-
-#### Clinical Severity Scores
-
-```{sql}
-CREATE TABLE clinical_severity_scores (
-    severity_id VARCHAR(20) PRIMARY KEY,
-    se_easi DECIMAL(5,2),
-    vas_score INTEGER,
+    easi_totscore DECIMAL(5,2),
+    vas_totscore INTEGER,
     skinqol_used INTEGER,
     skinqol_score INTEGER,
-    
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
-);
-```
-
-#### Psychological Assessments
-
-```{sql}
-CREATE TABLE psychological_assessments (
-    psych_id VARCHAR(20) PRIMARY KEY,
     bmsi_adverse_score DECIMAL(5,2),
     bmsi_capable_score INTEGER,
     bmsi_response_score DECIMAL(5,2),
     btms_bm_score INTEGER,
     btms_bthreat_score INTEGER,
-    btms_tscore INTEGER,
-    
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
-);
-```
-
-#### Sleep Assessments
-
-```{sql}
-CREATE TABLE sleep_assessments (
-    sleep_id VARCHAR(20) PRIMARY KEY,
+    btms_totscore INTEGER,
     sdc_srbd_scale DECIMAL(5,3),
     sdc_sleepiness_scale DECIMAL(4,3),
     sdc_restless_leg_scale DECIMAL(4,3),
@@ -369,17 +363,6 @@ CREATE TABLE sleep_assessments (
     sdc_hyper_tscore INTEGER,
     sdsc_tscore INTEGER,
     total_t_score INTEGER,
-    
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
-);
-```
-
-#### Cognitive Assessments
-
-```{sql}
-
-CREATE TABLE cognitive_assessments (
-    cognitive_id VARCHAR(20) PRIMARY KEY,
     ehi_tscore DECIMAL(6,2),
     wasi_fsiq4 INTEGER,
     gonogo_resp INTEGER,
@@ -388,6 +371,22 @@ CREATE TABLE cognitive_assessments (
     mack_mskips INTEGER,
     mack_iskips INTEGER,
     
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
+    FOREIGN KEY (visit_participant_id) REFERENCES visits(visit_id)
 );
 ```
+
+## Notes from the meeting with michelle
+
+-   no hierarchy on ethnicity when collected
+
+-   name of the table should be the same as the primary key
+
+-   if there's no dates, talk about that in the report why thats not good
+
+-   talk about time constraints that we couldnt create a proper NA
+
+-   flag for test or flag for a type
+
+-   consistent naming
+
+-   record type flag

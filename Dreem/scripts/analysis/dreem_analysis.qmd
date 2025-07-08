@@ -1,0 +1,21 @@
+---
+title: "Dreem Analysis"
+author: "Ella Jade Alexander"
+format: html
+editor: visual
+---
+
+# Mind&Skin Dreem Analysis
+
+```{r}
+library(luna)
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(readr)
+library(stringr)
+library(lubridate) # for working with dates
+library(scales)   # to access breaks/formatting functions
+library(gridExtra)
+library(tidyr)
+```

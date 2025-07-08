@@ -13,8 +13,8 @@ echo "Setting up Dreem project at: $DREEM_DIR"
 # Core directory structure
 # --------------------------
 mkdir -p "$DREEM_DIR/data/raw"
-mkdir -p "$DREEM_DIR/data/processed/edfs"
-mkdir -p "$DREEM_DIR/data/processed/annotations"
+mkdir -p "$DREEM_DIR/data/processed/edf_data"
+mkdir -p "$DREEM_DIR/data/processed/hypnogram"
 mkdir -p "$DREEM_DIR/data/processed/sample_list"
 mkdir -p "$DREEM_DIR/data/processed/metadata"
 mkdir -p "$DREEM_DIR/data/processed/luna_outputs"
@@ -22,9 +22,12 @@ mkdir -p "$DREEM_DIR/analysis"
 mkdir -p "$DREEM_DIR/scripts/preprocessing"
 mkdir -p "$DREEM_DIR/scripts/analysis"
 mkdir -p "$DREEM_DIR/scripts/luna_cmds"
+mkdir -p "$DREEM_DIR/scripts/setup"
 mkdir -p "$DREEM_DIR/documentation/references"
 mkdir -p "$DREEM_DIR/documentation/slides"
 mkdir -p "$DREEM_DIR/logs"
+mkdir -p "$DREEM_DIR/logs/preprocessing"
+mkdir -p "$DREEM_DIR/logs/db_build"
 
 # --------------------------
 # Migrate participant folders to data/raw/
@@ -150,12 +153,12 @@ for subject in "$DREEM_DIR"/MS*; do
             echo "Removing empty folder: $subject"
             rm -rf "$subject"
         else
-            echo "⚠️ Folder not empty (skipped): $subject"
+            echo "Folder not empty (skipped): $subject"
             find "$subject" -type f
         fi
     fi
 done
 
 
-echo "✅ Project directory setup complete."
+echo "Project directory setup complete."
 
