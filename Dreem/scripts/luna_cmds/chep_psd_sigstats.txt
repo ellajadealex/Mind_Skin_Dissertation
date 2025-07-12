@@ -4,13 +4,17 @@
 EPOCH                                  % Define 30s epochs
 MASK ifnot=N1,N2,N3,R,W                % Keep only standard sleep stages
 
-SIGNALS keep=EEG_F7_O2,EEG_F8_O2       % Use less noisy EEG channels
+SIGNALS keep=EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2
 
 CHEP-MASK ep-th=3,3                    % Drop entire epoch if all selected channels are bad
-CHEP-MASK ch-th=2                      % Drop any channel that fails in 2+ epochs
-CHEP dump                              % Output CHEP summary to log
+
+CHEP epochs dump                       % Output CHEP summary to log
+
+CHEP-MASK ch-th=3			%
+
+CHEP channel dump                       % Output CHEP summary to log
 
 RESTRUCTURE                            % Apply masking and remove bad data
 
-PSD spectrum strat=STAGE              % Compute PSD per sleep stage
+PSD spectrum.                          % Compute PSD per sleep stage
 SIGSTATS epoch                         % Per-epoch signal summary stats

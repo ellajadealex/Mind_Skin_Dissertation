@@ -1,0 +1,1412 @@
+---
+title: "Dreem Preprocessing"
+author: "Ella Jade Alexander"
+format: html
+editor: visual
+---
+
+# Mind&Skin Dreem Preprocessing
+
+This document describes the preprocessing pipeline for the **Mind&Skin** study, which investigates the impact of atopic eczema (AE) on adolescent sleep neurophysiology using the Dreem headband—a wearable EEG device that provides scalable, longitudinal alternatives to traditional polysomnography (PSG). By capturing continuous sleep-stage data and multi-channel EEG, Dreem enables objective assessment of sleep architecture, arousals, and disruption patterns across multiple nights.
+
+The scientific goal of the study is to uncover how sleep disturbance – driven by itching, inflammation, or discomfort – might contribute to systemic immune activation and neurocognitive dysfunction. To support this, preprocessing ensures that all Dreem data is clean, consistent, and analysis-ready.
+
+This pipeline prepares Dreem recordings for downstream signal analysis in **Luna**, a command-line toolkit developed for large-scale sleep data analysis. Luna allows flexible, scriptable processing of EDF files and annotations, enabling efficient extraction of per-epoch features, signal quality metrics, and spectral measures.
+
+This pipeline performs the following core tasks:
+
+-   **Creates new directory structure** and moves files to their new locations.
+
+-   **Standardizes participant IDs** and renames raw files into a structured, interpretable format.
+
+-   **Converts hypnogram `.txt` files into `.eannot` annotations** compatible with Luna.
+
+-   **Filters EDF recordings to retain only those ≥4 hours**, improving data quality and consistency.
+
+-   **Builds a raw Luna database (`dreem_raw.db`)** to store annotations, signal metrics, and derived features in a centralized, reproducible structure.
+
+This modular pipeline ensures transparency and reproducibility at every step—from raw EDF intake to structured database output. Each component is designed to accommodate future reprocessing, support manual QC where needed, and allow for systematic scaling as more data becomes available.
+
+The resulting Luna database serves as the foundation for all future analyses, including spectral decomposition (e.g., CHEP), sleep architecture profiling, and integration with immunological, cognitive, or neuroimaging outcomes. By aligning raw signals with a unified metadata model, this preprocessing pipeline makes it possible to perform rigorous longitudinal modeling of mind-skin interactions across the adolescent cohort.
+
+## Project Setup and Raw Data Organization
+
+Before any preprocessing or analysis can begin, raw Dreem data must be organized into a standardized directory structure. The `project_setup.sh` script automates this process, ensuring all participant folders, recordings, and file types are properly relocated and structured. This step is foundational to the pipeline’s modularity and reproducibility.
+
+### Raw Received Data Structure
+
+Each participant’s Dreem data arrives in a folder labeled `MSXX` (e.g., `MS01`). These folders contain nested subfolders and raw file in this format:
+
+-   **Participant Folder (`MSXX`)**: Represents an individual subject.
+
+-   **Visit Subfolders (`Visit_1`, `Visit_2`)**: Group recordings from multiple study visits.
+
+-   **Night Folders**: Each night is stored in a subfolder formatted as:
+
+    `DREEM_MSxx_yyyymmdd_hhmm_[optional_enddate_endtime]_qualityflag`
+
+    -   Examples:
+
+        -   `DREEM_MS04_20240314_2200` (normal)
+
+        -   `DREEM_MS04_20240314_2200_20240315_0200_red` (bad quality, spans two dates)
+
+-   **Contents of Night Folders**:
+
+    -   `.edf`: EEG recording file (used in Luna)
+
+    -   `_hypnogram.txt`: Sleep stage scoring
+
+    -   `.csv`, `.h5`, `.tar.gz`: Device logs, summaries, and backups (archived for reference)
+
+### New Structure
+
+```{text}
+Mind_Skin_Dissertation/
+├── data/
+│   ├── raw/
+│   │   └── MSXX/
+│   │       ├── Visit_1/
+│   │       │   └── DREEM_MS01_20240314_2200/
+│   │       │       ├── edf/
+│   │       │       │   └── ----_.edf
+│   │       │       ├── hypnogram/
+│   │       │       │   └── ----_hypnogram.txt
+│   │       │       └── reports/
+│   │       │           ├── ----_report.csv
+│   │       │           ├── ----_summary.h5
+│   │       │           └── ----_archive.tar.gz
+│   │       └── Visit_2/
+│   │           └── ...
+│   └── processed/
+│       ├── edf_data/              # Final renamed EDF and .eannot files
+│       ├── hypnogram/             # Final renamed hypnogram.txt files
+│       ├── sample_list/           # .lst for Luna
+│       ├── metadata/              # id_map.csv, rename_manifest.csv, sleepdevices_dates.csv
+│       └── luna_outputs/          # dreem_raw.db, CHEP, etc.
+├── scripts/
+│   ├── setup/
+│   │   └── project_setup.sh
+│   ├── preprocessing/
+│   │   └── apply_rename_manifest.sh
+│   │   └── build_raw_luna_db.sh
+│   │   └── extract_file_metadata.sh
+│   │   └── filter_4hr_edfs.sh
+│   │   └── generate_eannot.sh
+│   │   └── post_rename_pipeline.sh
+│   ├── luna_cmds/
+│   │   └── luna_db_raw.txt
+│   └── analysis/
+├── logs/
+│   └── preprocessing/             # Logs for each pipeline step
+└── documentation/
+    ├── references/
+    └── slides/
+```
+
+### What This Step Does
+
+When run from the root project directory (or from `scripts/setup/`), the script performs the following:
+
+-   Creates all required project folders under:
+
+    ```{text}
+    data/raw/
+    data/processed/
+    scripts/
+    logs/
+    documentation/
+    ```
+
+-   Moves each participant folder (e.g., `MS01`) into `data/raw/`.
+
+-   Detects visits (e.g., `Visit_1`, `MS01_Visit_2`) and organizes their night subfolders.
+
+-   Within each night folder:
+
+    -   Sorts `.edf` files into `edf/`
+
+    -   Sorts `_hypnogram.txt` into `hypnogram/`
+
+    -   Sorts other file types (`.csv`, `.h5`, `.tar.gz`) into `reports/`
+
+-   If no `Visit_X` folder exists, the script assumes all nights belong to `Visit_1`.
+
+-   Cleans up any original folders left empty after migration.
+
+-   Generates `README.md` files in key directories for clarity and documentation.
+
+### Why This Step Matters
+
+A consistent file organization:
+
+-   Simplifies metadata extraction and renaming
+
+-   Ensures that downstream scripts (e.g., for `.eannot` generation or database building) can locate files reliably
+
+-   Prevents duplication or loss of data
+
+-   Makes participant-level audits and QC much easier
+
+### Script: `project_setup.sh`
+
+```{bash}
+#!/bin/bash
+
+# Set base project directory
+if [[ $(basename "$PWD") == "setup" ]]; then
+    DREEM_DIR=$(realpath "$PWD/../..")
+else
+    DREEM_DIR=$(pwd)
+fi
+
+echo "Setting up Dreem project at: $DREEM_DIR"
+
+# --------------------------
+# Core directory structure
+# --------------------------
+mkdir -p "$DREEM_DIR/data/raw"
+mkdir -p "$DREEM_DIR/data/processed/edf_data"
+mkdir -p "$DREEM_DIR/data/processed/hypnogram"
+mkdir -p "$DREEM_DIR/data/processed/sample_list"
+mkdir -p "$DREEM_DIR/data/processed/metadata"
+mkdir -p "$DREEM_DIR/data/processed/luna_outputs"
+mkdir -p "$DREEM_DIR/analysis"
+mkdir -p "$DREEM_DIR/scripts/preprocessing"
+mkdir -p "$DREEM_DIR/scripts/analysis"
+mkdir -p "$DREEM_DIR/scripts/luna_cmds"
+mkdir -p "$DREEM_DIR/scripts/setup"
+mkdir -p "$DREEM_DIR/documentation/references"
+mkdir -p "$DREEM_DIR/documentation/slides"
+mkdir -p "$DREEM_DIR/logs"
+mkdir -p "$DREEM_DIR/logs/preprocessing"
+mkdir -p "$DREEM_DIR/logs/db_build"
+
+# --------------------------
+# Migrate participant folders to data/raw/
+# --------------------------
+echo "Organizing participant data under data/raw/"
+for subject in "$DREEM_DIR"/MS*; do
+    if [[ -d "$subject" ]]; then
+        subject_id=$(basename "$subject")
+        target_subject_dir="$DREEM_DIR/data/raw/$subject_id"
+        mkdir -p "$target_subject_dir"
+
+        for visit_pattern in "Visit_1" "Visit_2" "${subject_id}_Visit_1" "${subject_id}_Visit_2"; do
+            if [[ -d "$subject/$visit_pattern" ]]; then
+                visit_num=${visit_pattern##*_}
+                new_visit_dir="$target_subject_dir/Visit_$visit_num"
+                mkdir -p "$new_visit_dir"
+                echo "Processing $visit_pattern for $subject_id"
+
+                for night in "$subject/$visit_pattern"/*; do
+                    [[ -d "$night" ]] || continue
+                    night_name=$(basename "$night")
+                    target_night_dir="$new_visit_dir/$night_name"
+
+                    mkdir -p "$target_night_dir/edf"
+                    mkdir -p "$target_night_dir/hypnogram"
+                    mkdir -p "$target_night_dir/reports"
+
+                    for file in "$night"/*; do
+                        [[ -f "$file" ]] || continue
+                        filename=$(basename "$file")
+
+                        case "$file" in
+                            *.edf)
+                                mv -n "$file" "$target_night_dir/edf/$filename"
+                                ;;
+                            *_hypnogram.txt)
+                                mv -n "$file" "$target_night_dir/hypnogram/$filename"
+                                ;;
+                            *.h5|*.csv|*.tar.gz)
+                                mv -n "$file" "$target_night_dir/reports/$filename"
+                                ;;
+                        esac
+                    done
+
+                    [[ -z "$(find "$night" -type f)" ]] && rm -rf "$night"
+                done
+
+                [[ -z "$(find "$subject/$visit_pattern" -mindepth 1 -type d)" ]] && rm -rf "$subject/$visit_pattern"
+            fi
+        done
+
+        # Handle loose nights (no visit folder)
+        loose_night_found=0
+        for night in "$subject"/*; do
+            [[ -d "$night" ]] || continue
+            night_name=$(basename "$night")
+            [[ "$night_name" =~ Visit_ ]] && continue
+            loose_night_found=1
+            break
+        done
+
+        if [[ $loose_night_found -eq 1 ]]; then
+            loose_visit_dir="$target_subject_dir/Visit_1"
+            mkdir -p "$loose_visit_dir"
+            echo "No visits found for $subject_id, assigning nights to Visit_1"
+
+            for night in "$subject"/*; do
+                [[ -d "$night" ]] || continue
+                night_name=$(basename "$night")
+                [[ "$night_name" =~ Visit_ ]] && continue
+                target_night_dir="$loose_visit_dir/$night_name"
+
+                mkdir -p "$target_night_dir/edf"
+                mkdir -p "$target_night_dir/hypnogram"
+                mkdir -p "$target_night_dir/reports"
+
+                for file in "$night"/*; do
+                    [[ -f "$file" ]] || continue
+                    filename=$(basename "$file")
+
+                    case "$file" in
+                        *.edf)
+                            mv -n "$file" "$target_night_dir/edf/$filename"
+                            ;;
+                        *_hypnogram.txt)
+                            mv -n "$file" "$target_night_dir/hypnogram/$filename"
+                            ;;
+                        *.h5|*.csv|*.tar.gz)
+                            mv -n "$file" "$target_night_dir/reports/$filename"
+                            ;;
+                    esac
+                done
+
+                [[ -z "$(find "$night" -type f)" ]] && rm -rf "$night"
+            done
+        fi
+
+        # Clean up empty original subject directory
+        if [[ -z "$(find "$subject" -type f)" ]]; then
+            echo "Removing empty subject folder: $subject"
+            rm -rf "$subject"
+        fi
+    fi
+
+done
+
+# --------------------------
+# README files
+# --------------------------
+[[ ! -f "$DREEM_DIR/README.md" ]] && echo "# Dreem Sleep Study Project" > "$DREEM_DIR/README.md"
+[[ ! -f "$DREEM_DIR/data/processed/README.md" ]] && echo "# Processed data (.edf, .eannot, dbs)" > "$DREEM_DIR/data/processed/README.md"
+[[ ! -f "$DREEM_DIR/analysis/README.md" ]] && echo "# Analysis outputs (figures, stats)" > "$DREEM_DIR/analysis/README.md"
+[[ ! -f "$DREEM_DIR/scripts/README.md" ]] && echo "# Scripts for preprocessing and analysis" > "$DREEM_DIR/scripts/README.md"
+[[ ! -f "$DREEM_DIR/documentation/README.md" ]] && echo "# Project documentation, slides, references" > "$DREEM_DIR/documentation/README.md"
+
+# Final cleanup: remove original MS## folders if empty (ignore hidden files)
+echo "Cleaning up top-level participant folders..."
+
+for subject in "$DREEM_DIR"/MS*; do
+    if [[ -d "$subject" ]]; then
+        # Check for visible or hidden files
+        if [[ -z "$(find "$subject" -type f ! -name '.*')" ]]; then
+            echo "Removing empty folder: $subject"
+            rm -rf "$subject"
+        else
+            echo "Folder not empty (skipped): $subject"
+            find "$subject" -type f
+        fi
+    fi
+done
+
+
+echo "Project directory setup complete."
+```
+
+To run on command line (from scripts directory):
+
+```{bash}
+# if permissions needed
+# chmod +x project_setup.sh
+./project_setup.sh
+```
+
+## Renaming the EDF and hypnogram files
+
+Renaming the EDF and hypnogram files is a critical step in ensuring consistency, traceability, and usability in downstream analysis. Originally, these files arrive with inconsistent and sometimes verbose naming conventions—often including timestamps, device IDs, or irregular formatting based on how data was exported or stored in the field. This variation makes it difficult to systematically link a file to a specific participant, visit, and night, which is essential when aggregating data across multiple sessions or participants in a longitudinal study.
+
+The Luna database organizes all sleep data and derived metrics around unique IDs, with each ID corresponding to a single night of sleep. These IDs act as keys that link every output—such as total recording duration, number of epochs, percentage of unspanned time, or the number of masked epochs—to a specific data record. This structure is central to how Luna stores and processes information: all annotations, signal metrics, and derived features are tied directly to these per-night IDs.
+
+Having a clear, consistent ID format is essential because it makes the database easy to query, interpret, and analyze at scale. When analyzing longitudinal data or comparing across individuals and conditions, researchers need to reliably group, filter, and join records. If IDs were inconsistent or ambiguous, it would introduce errors and make automation or statistical modeling far more complex. By encoding participant, visit, and night information directly into the ID (e.g., `MS04_V2_N3`), we ensure that each entry is uniquely traceable and semantically informative—supporting clean, reproducible workflows across all stages of the study.
+
+To address this, we enforce a standardized naming scheme where each night of sleep becomes a clearly indexed entry. The new format—`MSXX_VX_NXX_X`—encodes the participant ID (`MSXX`), the visit number (`VX`), and the night number (`NXX`), and recording number only if there are multiple (`X)`. For example, `MS04_V2_N3` refers to participant MS04, visit 2, night 3. This naming convention is deterministic and human-readable, enabling efficient quality control, reproducible referencing, and seamless integration across steps in the preprocessing pipeline and Luna analysis environment.
+
+### Step 1. Extract File Metadata
+
+This script extracts metadata from raw Dreem data organized by participant, visit, and night. It parses the folder names to infer the start and end dates/times of each recording and compiles the information into a standardized metadata CSV (`id_map.csv`).
+
+Each row includes:
+
+-   Participant ID
+
+-   Visit number
+
+-   Inferred start and end date/time
+
+-   Original night folder name
+
+-   EDF and hypnogram filenames
+
+-   A quality flag derived from the folder name
+
+#### **Folder Naming Convention**
+
+In each of the `MSxx` participant folders, subfolders representing individual recording nights follow this structure:
+
+`DREEM_MSxx_<date-of-recording-start>_<time-start>_<date-of-recording-end>_<time-end>_<quality-flag>`
+
+Example:
+
+`DREEM_MS01_20230322_2358_20230323_0002_red`
+
+-   `date-of-recording-start` and `time-start`: inferred as the beginning of the sleep recording
+
+-   `date-of-recording-end` and `time-end`: included only if the recording ended on a different day
+
+-   `quality-flag`: typically "red" if the session was flagged as poor quality, otherwise omitted
+
+The script uses these folder name components to populate the `id_map.csv`, supporting manual review and integration with `sleepdevices_dates.csv`. This enables reproducible, traceable renaming downstream.
+
+### When to Use
+
+Run `project_setup.sh` **once at the beginning** of a new dataset integration. If new raw folders arrive (e.g., from additional participants or study sites), this script can be rerun safely as long as the existing directory structure is respected.
+
+#### Script: `extract_file_metadata.sh`
+
+```{bash}
+#!/bin/bash
+
+# Paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+RAW_DIR="$PROJECT_ROOT/data/raw"
+ID_MAP="$PROJECT_ROOT/data/processed/metadata/id_map.csv"
+mkdir -p "$(dirname "$ID_MAP")"
+
+# Header
+echo "participant_id,visit,date_start,time_start,date_end,time_end,night_folder,edf_filename,hypnogram_filename,quality_flag" > "$ID_MAP"
+
+# Functions
+format_date() {
+    local input="$1"
+    echo "${input:6:2}/${input:4:2}/${input:0:4}"
+}
+
+format_time() {
+    local input="$1"
+    echo "${input:0:2}:${input:2:2}"
+}
+
+# Loop over raw data
+for PARTICIPANT_DIR in "$RAW_DIR"/MS*/; do
+    PARTICIPANT_ID=$(basename "$PARTICIPANT_DIR")
+
+    for VISIT_DIR in "$PARTICIPANT_DIR"/*Visit*/; do
+        [[ -d "$VISIT_DIR" ]] || continue
+        VISIT_NUM=$(echo "$VISIT_DIR" | grep -oE 'Visit_([0-9]+)' | grep -oE '[0-9]+')
+        VISIT_NUM=${VISIT_NUM:-1}
+
+        for NIGHT_DIR in "$VISIT_DIR"/*/; do
+            [[ -d "$NIGHT_DIR" ]] || continue
+            NIGHT=$(basename "$NIGHT_DIR")
+
+            EDF_FILE=$(find "$NIGHT_DIR/edf" -type f -name "*.edf" | head -n 1)
+            HYPNO_FILE=$(find "$NIGHT_DIR/hypnogram" -type f -name "*.txt" | head -n 1)
+
+            [[ -f "$EDF_FILE" && -f "$HYPNO_FILE" ]] || continue
+
+            # Extract components from NIGHT
+            PARTS=($(echo "$NIGHT" | tr '_' ' '))
+            DATE_START=""; TIME_START=""; DATE_END=""; TIME_END=""; QUALITY_FLAG=""
+
+            for PART in "${PARTS[@]}"; do
+                if [[ "$PART" =~ ^[0-9]{8}$ && -z "$DATE_START" ]]; then
+                    DATE_START="$PART"
+                elif [[ "$PART" =~ ^[0-9]{4}$ && -z "$TIME_START" ]]; then
+                    TIME_START="$PART"
+                elif [[ "$PART" =~ ^[0-9]{8}$ && -n "$DATE_START" && -z "$DATE_END" ]]; then
+                    DATE_END="$PART"
+                elif [[ "$PART" =~ ^[0-9]{4}$ && -n "$TIME_START" && -z "$TIME_END" ]]; then
+                    TIME_END="$PART"
+                elif [[ "$PART" =~ ^[a-zA-Z]+$ ]]; then
+                    QUALITY_FLAG="$PART"
+                fi
+            done
+
+            [[ -z "$DATE_END" ]] && DATE_END="$DATE_START"
+            [[ -z "$QUALITY_FLAG" || "$QUALITY_FLAG" == "DREEM" ]] && QUALITY_FLAG="good"
+
+            echo "$PARTICIPANT_ID,$VISIT_NUM,$(format_date "$DATE_START"),$(format_time "$TIME_START"),$(format_date "$DATE_END"),$(format_time "$TIME_END"),$NIGHT,$(basename "$EDF_FILE"),$(basename "$HYPNO_FILE"),$QUALITY_FLAG" >> "$ID_MAP"
+        done
+    done
+done
+
+echo "Metadata extracted to: $ID_MAP"
+
+```
+
+To run on command line (from scripts directory):
+
+```{bash}
+# if permissions needed
+# chmod +x extract_file_metadata.sh
+./extract_file_metadata.sh
+```
+
+### 
+
+### Step 2. Manual Mapping via rename_manifest
+
+After generating `id_map.csv`, the next step is to manually define standardized names for each EDF and hypnogram file by creating a structured mapping file called `rename_manifest.csv`.
+
+#### **Purpose**
+
+This file explicitly maps raw Dreem filenames to standardized, analysis-ready IDs that capture:
+
+-   Participant ID
+
+-   Visit number
+
+-   Night index
+
+-   Recording number (to distinguish multiple recordings within a night)
+
+#### **Format**
+
+`rename_manifest.csv` is a modified version of `id_map.csv` with one additional column prepended: `standard_id`. This `standard_id` will define the final filename prefix (e.g., `MS01_V1_N1_R01`).
+
+#### **Steps**
+
+1.  **Copy the file for editing:**
+
+    ```{bash}
+    cp data/processed/metadata/id_map.csv data/processed/metadata/rename_manifest.csv
+    ```
+
+2.  **Add a new column called `standard_id` as the first column**.
+
+3.  **Manually assign `standard_id`**
+
+    -   To establish a consistent and traceable naming system, each EDF and hypnogram file is assigned a `standard_id` using the format:
+
+        -   `<participant_id>_V<visit>_N<night>_<recording>`
+            -   For example:
+                -   `MS01_V1_N2_1` → participant MS01, visit 1, second night, first recording that night
+
+                -   `MS01_V1_N2_2` → a second recording from the same night
+
+    -   This `standard_id` is added manually as the first column in the `rename_manifest.csv`, which serves as the authoritative mapping between original filenames and standardized IDs.
+
+        **How Assignments Are Made**
+
+        -   Cross-reference the recording date generated in `id_map.csv/rename_manifest.csv` with `sleepdevices_dates.csv`, which lists known study nights for each participant and visit.
+
+            -   `sleepdevices_dates.csv`is metadata that was generated by the PHD student, Xin Yi.
+
+        -   If a recording matches a defined study night:
+
+            -   Assign it the corresponding visit (`V1`, `V2`, etc.) and the night order (`N1`, `N2`, ...).
+
+        -   If the recording **does not match** any predefined study night:
+
+            -   Assign it to a placeholder visit `VX`, indicating it’s unclassified but retained for traceability.
+
+        **Handling Multiple Recordings Per Night**
+
+        If more than one EDF is found recorded in the same night:
+
+        -   Increment the final suffix: `_1`, `_2`, etc.
+
+        -   This accounts for cases like interrupted recordings or multiple start/stop cycles within the same night.
+
+    -   *\*\*\*Note: To make this process easier, I transposed the using the script `transpose_sleepdevices.R.`*
+
+4.  **Do not edit** any of the following columns during this step:
+
+    -   `edf_filename`, `hypnogram_filename`
+
+    -   `date_start`, `time_start`, `date_end`, `time_end`
+
+    -   `quality_flag`
+
+5.  **Save the file.** This manifest will be used as the authoritative source for renaming and copying files into their final locations in Step 3.
+
+This process enables a reproducible mapping from raw filenames to clean, standardized filenames, while maintaining transparency and traceability. It accommodates edge cases such as multiple recordings per night using the final `_XX` suffix convention.
+
+### Step 3: Renaming and Copying Files Using the Manifest
+
+Once `rename_manifest.csv` is finalized, a shell script is used to rename and copy the original EDF and hypnogram files into their standardized output locations. This ensures all data is organized and named consistently for downstream processing.
+
+#### Actions
+
+-   The script reads each row of `rename_manifest.csv`.
+
+-   For each entry, it:
+
+    -   Locates the original EDF and hypnogram file paths based on the participant ID, visit number, and night folder.
+
+    -   Renames and copies them to:
+
+        -   `data/processed/edf_data/`
+
+        -   `data/processed/hypnogram/`
+
+    -   Names the new files using the `standard_id` defined in the manifest (e.g., `MS01_V1_N2_R01.edf` and `.txt`).
+
+-   It records success and failure messages in a log file.
+
+#### Logging and Error Handling
+
+-   All actions are logged to `logs/preprocessing/rename_manifest_log.txt`.
+
+-   If any expected input files are missing, the script logs the failure and prints a list of `standard_id`s that could not be processed.
+
+-   The script exits with an error code if any renames fail, making it easy to catch problems during batch runs.
+
+#### Output Locations
+
+-   Renamed EDF files: `data/processed/edf_data/`
+
+-   Renamed hypnogram files: `data/processed/hypnogram/`
+
+-   Rename log: `logs/preprocessing/rename_manifest_log.txt`
+
+#### Note on File Copying
+
+Instead of renaming files in place within the `data/raw/` directory, the script **copies** them into `data/processed/`. This preserves the original Dreem exports, ensures a clear separation between raw and curated data, and enables reproducible downstream workflows. It also avoids accidental overwrites or irreversible changes during iterative development or analysis.
+
+#### Script: `apply_rename_manifest.sh`
+
+```{bash}
+#!/bin/bash
+
+# Paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+MANIFEST="$PROJECT_ROOT/data/processed/metadata/rename_manifest.csv"
+RAW_DIR="$PROJECT_ROOT/data/raw"
+EDF_OUT="$PROJECT_ROOT/data/processed/edf_data"
+HYPNO_OUT="$PROJECT_ROOT/data/processed/hypnogram"
+LOG_FILE="$PROJECT_ROOT/logs/preprocessing/rename_manifest_log.txt"
+
+mkdir -p "$EDF_OUT" "$HYPNO_OUT" "$(dirname "$LOG_FILE")"
+
+echo "# Rename Manifest Log - $(date)" >> "$LOG_FILE"
+
+# Initialize failure tracking
+FAILED_IDS=()
+
+tail -n +2 "$MANIFEST" | while IFS=',' read -r STANDARD_ID PARTICIPANT_ID VISIT DATE_START TIME_START DATE_END TIME_END NIGHT EDF_FILE HYPNO_FILE QUALITY_FLAG; do
+    EDF_SRC="$RAW_DIR/$PARTICIPANT_ID/Visit_$VISIT/$NIGHT/edf/$EDF_FILE"
+    HYPNO_SRC="$RAW_DIR/$PARTICIPANT_ID/Visit_$VISIT/$NIGHT/hypnogram/$HYPNO_FILE"
+
+    EDF_DST="$EDF_OUT/${STANDARD_ID}.edf"
+    HYPNO_DST="$HYPNO_OUT/${STANDARD_ID}.txt"
+
+    if [[ -f "$EDF_SRC" && -f "$HYPNO_SRC" ]]; then
+        cp "$EDF_SRC" "$EDF_DST"
+        cp "$HYPNO_SRC" "$HYPNO_DST"
+        echo "$STANDARD_ID: Copied and renamed" >> "$LOG_FILE"
+    else
+        echo "$STANDARD_ID: Missing source file(s):" >> "$LOG_FILE"
+        echo "  EDF:    $EDF_SRC" >> "$LOG_FILE"
+        echo "  Hypno:  $HYPNO_SRC" >> "$LOG_FILE"
+        FAILED_IDS+=("$STANDARD_ID")
+    fi
+done
+
+# Always print summary
+echo ""
+echo "Output EDFs:  $EDF_OUT"
+echo "Output TXT:   $HYPNO_OUT"
+echo "Log file:     $LOG_FILE"
+
+# Error summary
+if (( ${#FAILED_IDS[@]} > 0 )); then
+    echo ""
+    echo "Some files were not found or not renamed:"
+    for ID in "${FAILED_IDS[@]}"; do
+        echo "  - $ID"
+    done
+    exit 1
+else
+    echo ""
+    echo "All entries processed successfully."
+fi
+```
+
+To run on command line (from scripts directory):
+
+```{bash}
+# if permissions needed
+# chmod +x apply_rename_manifest.sh
+./apply_rename_manifest.sh
+```
+
+## Generating `.eannot` Files from Hypnograms
+
+Dreem hypnogram `.txt` files must be converted into `.eannot` format for compatibility with Luna’s annotation system. Luna requires that sleep stage annotations be stored in `.eannot` files, where each line represents a scored 30-second epoch in Luna's expected format (`W`, `N1`, `N2`, `N3`, `R`, `MT`).
+
+However, Dreem `.txt` files:
+
+-   Contain multi-column TSV data with headers.
+
+-   Use non-Luna sleep stage labels like `SLEEP-S0`, `SLEEP-REM`, etc.
+
+This step processes each hypnogram file by:
+
+1.  Removing headers and extra columns.
+
+2.  Extracting only the stage labels.
+
+3.  Mapping Dreem labels to Luna’s format using deterministic string replacements.
+
+The result is a `.eannot` file that mirrors the corresponding EDF filename and is saved in `data/processed/edf_data/`, co-located with the EDF files — as required by Luna.
+
+By using the standardized `standard_id` (e.g., `MS04_V2_N3_R01`), this ensures one-to-one pairing between the EDF and annotation files, supporting automated processing via Luna’s `--eannot` and `--build` commands.
+
+### Safety Checks
+
+The `.eannot` generation script includes key safeguards:
+
+-   **Empty input check**: exits if no `.txt` files are found.
+
+-   **Duplicate skip**: avoids overwriting existing `.eannot` files.
+
+-   **Stage validation**: flags any unexpected or malformed labels.
+
+-   **Run summary**: prints files processed, skipped, and flagged file counts.
+
+These checks ensure data integrity and reproducible output.
+
+### Script: `generate_eannot.sh`
+
+```{bash}
+#!/bin/bash
+
+# Set paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+HYPNO_DIR="$PROJECT_ROOT/data/processed/hypnogram"
+ANNOT_DIR="$PROJECT_ROOT/data/processed/edf_data"
+LOG_FILE="$PROJECT_ROOT/logs/preprocessing/eannot_log.txt"
+
+mkdir -p "$ANNOT_DIR" "$(dirname "$LOG_FILE")"
+echo "# Eannot Generation Log - $(date)" >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
+
+# Enable nullglob so for loop doesn't use literal *.txt if empty
+shopt -s nullglob
+HYPNO_FILES=("$HYPNO_DIR"/*.txt)
+
+# Check if any hypnogram files exist
+if [[ ${#HYPNO_FILES[@]} -eq 0 ]]; then
+    echo "Warning: No hypnogram .txt files found in $HYPNO_DIR"
+    exit 1
+fi
+
+PROCESSED_COUNT=0
+SKIPPED_COUNT=0
+INVALID_COUNT=0
+
+# Loop through hypnogram files
+for HYPNO_FILE in "${HYPNO_FILES[@]}"; do
+    BASENAME=$(basename "$HYPNO_FILE" .txt)
+    EANNOT_FILE="$ANNOT_DIR/${BASENAME}.eannot"
+
+    # Skip if already exists
+    if [[ -f "$EANNOT_FILE" ]]; then
+        echo "Skipping $BASENAME — .eannot already exists" >> "$LOG_FILE"
+        ((SKIPPED_COUNT++))
+        continue
+    fi
+
+    echo "Processing $BASENAME"
+
+    # Remove header and keep only first column
+    sed '1,/^Sleep Stage/d' "$HYPNO_FILE" | cut -f1 > "$EANNOT_FILE"
+
+    # Convert stage labels to Luna format
+    sed -i '' -e 's/SLEEP-S0/W/' \
+              -e 's/SLEEP-S1/N1/' \
+              -e 's/SLEEP-S2/N2/' \
+              -e 's/SLEEP-S3/N3/' \
+              -e 's/SLEEP-REM/R/' \
+              -e 's/SLEEP-MT/MT/' "$EANNOT_FILE"
+
+    # Validate stage labels
+    if grep -qvE '^(W|N1|N2|N3|R|MT)$' "$EANNOT_FILE"; then
+        echo "Warning: $BASENAME.eannot contains unknown stage labels" >> "$LOG_FILE"
+        ((INVALID_COUNT++))
+    fi
+
+    echo "PROCESSED: $BASENAME" >> "$LOG_FILE"
+    ((PROCESSED_COUNT++))
+done
+
+# Summary
+echo ""
+echo "Processed: $PROCESSED_COUNT file(s)"
+echo "Skipped:   $SKIPPED_COUNT existing .eannot file(s)"
+echo "Invalid:   $INVALID_COUNT file(s) with unknown labels (check log)"
+
+echo ""
+echo "Done generating .eannot files."
+echo "Output: $ANNOT_DIR"
+echo "Log file: $LOG_FILE"
+```
+
+To run on command line (from scripts directory):
+
+```{bash}
+# if permissions needed
+# chmod +x generate_eannot.sh
+./generate_eannot.sh
+```
+
+### Step 5: Filtering for EDFs ≥ 4 Hours and Generating the Sample List
+
+To ensure data quality and consistency in downstream analyses, this step filters out EDF recordings shorter than 4 hours (14,400 seconds). Short or incomplete recordings can bias summary statistics, reduce power in longitudinal comparisons, and interfere with analyses that rely on full-night coverage (e.g., CHEP, spectral dynamics).
+
+Using Luna’s `HEADERS` command, we extract metadata (including `TOT_DUR_SEC`) from each EDF file and filter accordingly. Only those that meet the duration threshold are retained in a final `.lst` file, `min_4hr_edf.lst`.
+
+This sample list is essential for:
+
+-   **Explicit Inclusion Criteria**: It defines which files are "analysis-ready" based on duration.
+
+-   **Downstream Consistency**: Every Luna command (e.g., CHEP, QC, summarization) operates only on files in this list.
+
+-   **Reproducibility**: Ensures all filtering decisions are documented, versioned, and traceable.
+
+-   **Error Reduction**: Prevents accidental inclusion of corrupted, short, or test recordings.
+
+### Safety Check
+
+To further ensure correctness, the script also verifies that each `.edf` has a corresponding `.eannot`, and will stop with a warning if no files meet the duration requirement.
+
+### Script: `filter_4hr_edfs.sh`
+
+```{bash}
+#!/bin/bash
+
+# Filter EDF recordings ≥ 4 hours and generate sample list
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+PROCESSED_DIR="$PROJECT_ROOT/data/processed"
+EDF_DIR="$PROCESSED_DIR/edf_data"
+ANNOTATION_DIR="$PROCESSED_DIR/edf_data"
+SAMPLE_LIST_DIR="$PROCESSED_DIR/sample_list"
+DB_DIR="$SAMPLE_LIST_DIR"
+LOG_DIR="$PROJECT_ROOT/logs/preprocessing"
+LOG_FILE="$LOG_DIR/4hr_edfs_log.txt"
+
+mkdir -p "$SAMPLE_LIST_DIR" "$DB_DIR" "$LOG_DIR"
+
+LST_FILE="$SAMPLE_LIST_DIR/all_edf.lst"
+DB_FILE="$DB_DIR/headers_4hr_lst.db"
+FILTERED_LST="$SAMPLE_LIST_DIR/min_4hr_edf.lst"
+
+# Check that EDFs have matching .eannot files
+EDF_FILES=("$EDF_DIR"/*.edf)
+MATCHING_IDS=()
+for EDF_FILE in "${EDF_FILES[@]}"; do
+    BASENAME=$(basename "$EDF_FILE" .edf)
+    if [[ -f "$EDF_DIR/$BASENAME.eannot" ]]; then
+        MATCHING_IDS+=("$BASENAME")
+    fi
+done
+
+if [[ ${#MATCHING_IDS[@]} -eq 0 ]]; then
+    echo "Error: No EDFs with matching .eannot files found in $EDF_DIR"
+    exit 1
+fi
+
+# Use Luna to build sample list correctly
+echo "Building Luna sample list from: $EDF_DIR"
+luna --build "$EDF_DIR" -ext=.eannot > "$LST_FILE"
+
+# Run HEADERS
+echo "Running Luna HEADERS on all samples"
+luna "$LST_FILE" -o "$DB_FILE" -s HEADERS
+
+# Filter for recordings ≥ 4 hours
+echo "Filtering EDFs with duration ≥ 4 hours"
+destrat "$DB_FILE" +HEADERS -v ID TOT_DUR_SEC \
+  | awk '$2 >= 14400 {print $1}' > "$SAMPLE_LIST_DIR/tmp_ids.txt"
+
+awk 'NR==FNR {filter[$1]; next} $1 in filter' \
+    "$SAMPLE_LIST_DIR/tmp_ids.txt" "$LST_FILE" > "$FILTERED_LST"
+
+# Check if any files passed filter
+if [[ ! -s "$FILTERED_LST" ]]; then
+    echo "Error: No EDFs ≥ 4 hours found. Exiting."
+    exit 1
+fi
+
+# Log summary
+NOW=$(date '+%Y-%m-%d %H:%M:%S')
+echo "=== Run on $NOW ===" >> "$LOG_FILE"
+
+TOTAL_FILES=$(wc -l < "$LST_FILE")
+KEPT_FILES=$(wc -l < "$FILTERED_LST")
+EXCLUDED_FILES=$((TOTAL_FILES - KEPT_FILES))
+
+echo "Total EDFs processed: $TOTAL_FILES" >> "$LOG_FILE"
+echo "Files meeting 4hr threshold: $KEPT_FILES" >> "$LOG_FILE"
+echo "Files excluded: $EXCLUDED_FILES" >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
+echo "Participant breakdown:" >> "$LOG_FILE"
+
+cut -d '_' -f1 "$LST_FILE" | sort | uniq | while read -r PARTICIPANT; do
+  TOTAL_P=$(grep "^$PARTICIPANT" "$LST_FILE" | wc -l)
+  KEPT_P=$(grep "^$PARTICIPANT" "$FILTERED_LST" | wc -l)
+  EXCLUDED_P=$((TOTAL_P - KEPT_P))
+  echo "$PARTICIPANT: kept=$KEPT_P, excluded=$EXCLUDED_P" >> "$LOG_FILE"
+done
+
+rm "$SAMPLE_LIST_DIR/tmp_ids.txt"
+
+echo "Done. Filtered sample list saved to: $FILTERED_LST"
+```
+
+To run on command line (from scripts directory):
+
+```{bash}
+# if permissions needed
+# chmod +x filter_4hr_edfs.sh
+./filter_4hr_edfs.sh
+```
+
+## Building the Raw Luna Database (`dreem_raw.db`)
+
+After preprocessing and filtering, we build a structured Luna database (`dreem_raw.db`) from all ≥4-hour EDF recordings. This database serves as the foundation for all downstream sleep signal analysis and statistical workflows in the project.
+
+### What is the Luna DB?
+
+The Luna database is a structured SQLite file that stores:
+
+-   Per-epoch annotations (stages, masks)
+
+-   Signal-level metrics (e.g., means, variances)
+
+-   Derived features (e.g., spectral power)
+
+Each row corresponds to a single epoch in a single night of sleep, tied to a unique `standard_id` (`MSXX_VX_NXX_RXX`). The database structure allows for efficient queries, reproducible batch processing, and consistent application of analytical routines.
+
+### Why Build the DB in Stages?
+
+Instead of including all analyses at once, we construct an initial "raw" database containing only essential elements. Additional analyses — like CHEP or quality filtering — are layered in modular steps. This design:
+
+-   Keeps the DB clean and reproducible
+
+-   Allows for easier debugging and validation
+
+-   Supports reusability across workflows
+
+### Luna Command File Overview
+
+Luna’s processing is guided by a **command file**, which defines the exact set of operations to be performed on each sleep recording in the sample list. This file is a plain-text script, with each line corresponding to a Luna command — such as epoching, signal selection, or spectral analysis.
+
+Using a command file ensures that:
+
+-   **Processing is reproducible** — the same commands are applied uniformly across all files.
+
+-   **Workflows are modular** — commands can be added or removed without changing the core script.
+
+-   **Analysis is transparent** — every operation is logged and documented for audit and debugging.
+
+In this pipeline, we use the file `luna_db_raw.txt` to define the operations used to generate the initial version of the `dreem_raw.db` database.
+
+#### Initial Command File: `dreem_initial_db.txt`
+
+```{text}
+% dreem_initial_db.txt
+
+EPOCH                          % Define 30s epochs
+
+SIGNALS keep=EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2
+                                % Select key EEG channels
+
+MASK ifnot=N1,N2,N3,R,W        % Keep only valid sleep stages
+
+RESTRUCTURE                    % Drop masked epochs
+
+FILTER bandpass=0.3,35         % Bandpass filter (0.3–35 Hz)
+       ripple=0.01             % Filter ripple
+       tw=0.5                  % Transition width
+
+CHEP-MASK ep-th=3,3            % Epoch-wise outlier detection
+
+CHEP epochs dump               % Set epoch mask from CHEP; dump it
+
+CHEP-MASK ch-th=2              % Channel-wise outlier detection
+
+CHEP channels=0.3 dump         % Drop channels with >30% bad cheps
+
+RESTRUCTURE                    % Apply all masks
+
+SIGSTATS epoch                 % Epoch-level signal stats
+
+PSD spectrum                   % Power spectral density
+```
+
+#### Explanation of Commands Used
+
+##### `EPOCH`
+
+Initializes fixed 30-second epochs across the entire EDF file. Most Luna commands, including artifact detection, masking, and spectral analysis, require data to be epoched. Epochs act as time-aligned units for signal comparison and summarization.
+
+------------------------------------------------------------------------
+
+##### `SIGNALS keep=EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2`
+
+Limits analysis to a specified set of EEG channels. Channels Accelero_Norm, Positiongram, Respiration_x, Respiration_y, and Respiration_z are dropped.
+
+------------------------------------------------------------------------
+
+##### `MASK ifnot=N1,N2,N3,R,W`
+
+Applies a sleep-stage filter, keeping only epochs scored as NREM stages (N1–N3), REM, or Wake. Epochs scored as movement (MT) or unknown are excluded to minimize artifact contamination in downstream analyses.
+
+------------------------------------------------------------------------
+
+##### `RESTRUCTURE`
+
+Applies any existing masks (e.g., from `MASK` and `SIGNALS keep`) and permanently removes the masked epochs or channels from the internal EDF. This ensures all subsequent metrics and outputs are based only on intentionally retained data.
+
+------------------------------------------------------------------------
+
+##### `FILTER bandpass=0.3,35`
+
+Applies a bandpass filter using a linear-phase FIR design to retain frequencies between 0.3 and 35 Hz. This removes slow drift and high-frequency noise, targeting the typical EEG range used in sleep studies.
+
+##### `ripple=0.01` and `tw=0.5`
+
+These parameters refine the filter design. `ripple=0.01` sets the acceptable amplitude variation in the stopband (\~–40 dB attenuation), and `tw=0.5` sets the transition width between passband and stopband to 0.5 Hz, balancing sharpness and stability.
+
+------------------------------------------------------------------------
+
+##### `CHEP`
+
+These commands perform Hjorth-parameter-based artifact detection.
+
+-   `CHEP-MASK ep-th=3`
+
+    -   Identifies *within-channel, between-epoch* outliers using Hjorth parameters. A two-pass SD-based method flags cheps (channel+epoch pairs) where any Hjorth metric deviates beyond 3 SD from the per-channel distribution across epochs. These cheps are added to the internal CHEP mask but are not yet excluded from analysis.
+
+-   `CHEP epochs dump`
+
+    -   Sets a channel-agnostic *epoch-level mask* based on the current CHEP mask. An epoch is masked if **any** of its channels were flagged as outliers. This mask is then saved (via `dump`) and becomes available for operations like RESTRUCTURE. This enables synchronization between channel-based artifact detection and epoch-level exclusion.
+
+-   `CHEP-MASK ch-th=2`
+
+    -   Performs *within-epoch, between-channel* outlier detection. For each epoch, a chep is flagged if any Hjorth parameter for that channel deviates more than 2 SD from the distribution of all channels in that same epoch. These are added to the CHEP mask. This step complements the `ep-th` approach by detecting spatially inconsistent artifacts.
+
+-   `CHEP channels=0.3 dump`
+
+    -   Evaluates the existing CHEP mask and flags entire channels as bad if **\>30%** of their cheps were previously flagged. These channels are then fully masked for all epochs. The `dump` option saves this information to the output stream for reproducibility and inspection. This helps exclude persistently noisy channels from further processing.
+
+------------------------------------------------------------------------
+
+##### `RESTRUCTURE` (second call)
+
+Applies the updated epoch-level mask (set by `CHEP epochs`) and finalizes the exclusion of both poor-quality epochs and persistently noisy channels. This ensures clean, artifact-minimized data for subsequent feature extraction.
+
+------------------------------------------------------------------------
+
+##### `SIGSTATS epoch`
+
+Computes signal statistics at two levels:
+
+-   **Overall per-channel (CH):** calculates Hjorth parameters (H1–activity, H2–mobility, H3–complexity) and other metrics like RMS, min, max, skewness across the full recording.
+
+-   **Per-channel per-epoch (CH x E):** repeats H1–H3 plus RMS (**Root Mean Square –** a standard measure of signal amplitude that reflects the average power of a waveform) for each 30‑second epoch (excluding masked epochs), enabling time‑resolved signal quality checks.
+
+------------------------------------------------------------------------
+
+##### `PSD spectrum`
+
+Computes the power spectral density using Welch's method, giving per-epoch frequency-domain summaries for each signal. This is essential for analyzing sleep depth, arousals, and frequency-specific phenomena like slow-wave activity or alpha suppression.
+
+------------------------------------------------------------------------
+
+### Luna Database Build Script
+
+This script marks the transition from preprocessing to structured data analysis. It builds a clean, annotated Luna database (`dreem_raw.db`) by integrating only the highest-quality EDF recordings—those that are ≥4 hours and have standardized filenames and annotations. The resulting database enables scalable, reproducible downstream analysis and becomes the central data object used throughout the rest of the pipeline.
+
+#### Purpose and Role in the Pipeline
+
+This script consolidates all prior steps:
+
+-   The renaming step ensures that file IDs are deterministic and interpretable.
+
+-   The `.eannot` generation step adds stage annotations needed for sleep-specific metrics.
+
+-   The duration filter ensures that only complete, usable recordings are included.
+
+-   The command file (`luna_db_raw.txt`) defines exactly what features to compute.
+
+#### Workflow Overview
+
+The script performs the following actions in order:
+
+-   **Initial Setup**:
+
+    -   Resolves all necessary directories and filenames.
+
+    -   Ensures that output folders (e.g., `luna_outputs/`, `logs/`) exist.
+
+-   **Validation Checks**:
+
+    -   Verifies that the Luna command file and sample list are present.
+
+    -   These checks prevent the script from silently failing or running with incomplete inputs.
+
+-   E**xecution and Logging**:
+
+    -   Executes Luna using:
+
+        ```{bash}
+        luna "$LST_FILE" -o "$OUTPUT_DB" < "$CMD_FILE"
+        ```
+
+        -   This applies the entire processing specification in `luna_db_raw.txt` to each sample in the list.
+
+    -   Appends a timestamped log entry, notes success or failure, and reports how many EDFs were processed.
+
+-   **Error Handling**:
+
+    -   If Luna fails (e.g., due to corrupt input or bad annotations), the script exits with a clear error message.
+
+#### Safety Features
+
+-   **Fail-Fast Guards**: If either the sample list or the command file is missing, the script exits immediately with a warning.
+
+-   T**imestamped Logging**: All output is appended to a persistent log file, enabling traceability and easier debugging across multiple runs.
+
+-   S**tructured Output**: Output database is placed in a fixed location, ensuring downstream scripts can reference it predictably.
+
+#### Script: `build_initial_dreem_db.sh`
+
+```{bash}
+#!/bin/bash
+
+# Build a Luna DB from all valids EDF recordings
+
+# Set directory paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+EDF_DIR="$PROJECT_ROOT/data/processed/edf_data"
+LST_FILE="$PROJECT_ROOT/data/processed/sample_list/min_4hr_edf.lst"
+CMD_FILE="$PROJECT_ROOT/scripts/luna_cmds/dreem_initial_db.txt"
+OUTPUT_DB="$PROJECT_ROOT/data/processed/luna_outputs/dreem_initial.db"
+LOG_DIR="$PROJECT_ROOT/logs/db_build"
+LOG_FILE="$LOG_DIR/dreem_db_build_log.txt"
+
+mkdir -p "$(dirname "$OUTPUT_DB")" "$LOG_DIR"
+
+# Log start time
+NOW=$(date '+%Y-%m-%d %H:%M:%S')
+echo "=== Luna DB Build Log: $NOW ===" >> "$LOG_FILE"
+
+# Safety checks
+if [[ ! -f "$CMD_FILE" ]]; then
+    echo "Command file not found: $CMD_FILE" | tee -a "$LOG_FILE"
+    exit 1
+fi
+
+if [[ ! -f "$LST_FILE" ]]; then
+    echo "Sample list not found: $LST_FILE" | tee -a "$LOG_FILE"
+    exit 1
+fi
+
+echo "Running Luna on sample list: $LST_FILE" | tee -a "$LOG_FILE"
+echo "Using command file: $CMD_FILE" | tee -a "$LOG_FILE"
+echo "Output database: $OUTPUT_DB" | tee -a "$LOG_FILE"
+
+# Run Luna and log output
+luna "$LST_FILE" -o "$OUTPUT_DB" < "$CMD_FILE" >> "$LOG_FILE" 2>&1
+
+# Check Luna exit status
+if [[ $? -eq 0 ]]; then
+    FILE_COUNT=$(wc -l < "$LST_FILE")
+    echo "Successfully created database with $FILE_COUNT EDFs" | tee -a "$LOG_FILE"
+else
+    echo "Luna command failed. Check logs for details." | tee -a "$LOG_FILE"
+    exit 1
+fi
+
+echo "" >> "$LOG_FILE"
+```
+
+To run on command line (from scripts directory):
+
+```{bash}
+# if permissions needed
+# chmod +x build_raw_luna_db.sh
+./build_initial_dreem_db.sh
+```
+
+Several times, I had to run the luna build command manually (to troubleshoot errors), so here is how you do this on the command line:
+
+```{bash}
+luna /Dreem/data/processed/sample_list/min_4hr_edf.lst \
+     -o /Dreem/data/processed/luna_outputs/dreem_initial.db \
+     < /Dreem/scripts/luna_cmds/dreem_initial_db.txt
+```
+
+## Post-Renaming Pipeline
+
+Once EDF and hypnogram files have been standardized and copied using `rename_manifest.csv`, the next step is to process them into a format compatible with Luna. The `post_rename_pipeline.sh` script automates this process by chaining together three critical preprocessing steps. This modular design ensures clean integration of new data and reproducible output generation for analysis.
+
+### Overview
+
+`post_rename_pipeline.sh` is a **driver script** that runs all steps required after files have been renamed:
+
+1.  Generates `.eannot` annotation files from hypnograms
+
+2.  Filters EDFs to retain only those with ≥4 hours of data
+
+3.  Builds the unified Luna database (`dreem_raw.db`)
+
+4.  This script is safe to re-run at any time. It automatically incorporates newly added files and skips already-processed ones where appropriate.
+
+### Prerequisites
+
+-   Files must be correctly renamed and placed in:
+
+    -   `data/processed/edf_data/` (EDF files)
+
+    -   `data/processed/hypnogram/` (TXT files)
+
+-   `.eannot` files must not already exist for new hypnograms (the script skips existing ones).
+
+-   `rename_manifest.csv` must be fully up to date.
+
+### Script: `post_rename_pipeline.sh`
+
+```{bash}
+#!/bin/bash
+
+# Run this after renaming the EDF and hypnogram files
+# (extract_file_metadata.sh, manual renaming to rename_manifest.csv, apply_rename_manifest.sh)
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+LOG_MASTER="$PROJECT_ROOT/logs/preprocessing/post_rename_master_log.txt"
+NOW=$(date '+%Y-%m-%d %H:%M:%S')
+
+mkdir -p "$(dirname "$LOG_MASTER")"
+echo "=== Post-Rename Pipeline Log: $NOW ===" >> "$LOG_MASTER"
+
+# Step 1: Generate .eannot files
+echo "--- Step 1: Generate .eannot files ---" | tee -a "$LOG_MASTER"
+"$PROJECT_ROOT/scripts/preprocessing/generate_eannot.sh" >> "$LOG_MASTER" 2>&1
+
+# Step 2: Filter EDFs ≥ 4 hours
+echo "--- Step 2: Filter EDFs ≥ 4 hours ---" | tee -a "$LOG_MASTER"
+"$PROJECT_ROOT/scripts/preprocessing/filter_4hr_edfs.sh" >> "$LOG_MASTER" 2>&1
+
+# Step 3: Build raw Luna DB
+echo "--- Step 3: Build Luna raw DB ---" | tee -a "$LOG_MASTER"
+"$PROJECT_ROOT/scripts/preprocessing/build_initial_dreem_db.sh" >> "$LOG_MASTER" 2>&1
+
+echo "Preprocessing pipeline complete. Review log at: $LOG_MASTER" | tee -a "$LOG_MASTER"
+```
+
+### Output and Logging
+
+-   `.eannot` files are saved in `data/processed/edf_data/` alongside their EDFs.
+
+-   A filtered sample list of ≥4-hour EDFs is created in `data/processed/sample_list/min_4hr_edf.lst`.
+
+-   The Luna database is built at `data/processed/luna_outputs/dreem_raw.db`.
+
+-   All actions and errors are logged to `logs/preprocessing/post_rename_master_log.txt`.
+
+### Reproducibility and Extensibility
+
+The script is modular and transparent:
+
+-   Each sub-step has its own script and log file.
+
+-   It can be extended later to include additional steps (e.g., CHEP, masking, or longitudinal analysis).
+
+-   Because it rebuilds the database each time, the result is always synchronized with the current data.
+
+This structure makes `post_rename_pipeline.sh` an essential piece in the scalable preprocessing system, ensuring consistency across batches and participants.
+
+## Handling New Incoming Data
+
+As new Dreem data becomes available—either from new participants or additional visits from existing ones—it’s critical to integrate it without disrupting prior work. The pipeline is designed to accommodate these updates in a reproducible and modular way. This section outlines how to safely add new data to the system, update naming, and regenerate downstream outputs.
+
+### Step 1: Place Incoming Files (`project_setup.sh`)
+
+Use `project_setup.sh` to organize new EDF and hypnogram `.txt` files into the appropriate raw data folders:
+
+-   data/raw/edf_data/
+
+-   data/raw/hypnogram/
+
+This script standardizes folder structure and ensures that all new files are ready for metadata extraction and tracking.
+
+### Step 2: Extract Metadata (`extract_file_metadata.sh`)
+
+Run the metadata extraction script to update `id_map.csv`:
+
+```{bash}
+./scripts/preprocessing/extract_file_metadata.sh
+```
+
+This generates a complete listing of all available EDF/hypnogram pairs, with metadata such as start/end times, quality flags, and original filenames. New recordings—whether from new participants or additional visits—will appear as new rows in this file.
+
+### Step 3: Update the Rename Manifest (`rename_manifest.csv`)
+
+Rather than replacing the entire manifest, **append only the new rows** from the regenerated `id_map.csv` into your existing `rename_manifest.csv`. This ensures that all past mappings remain intact and reproducible.
+
+For each new row:
+
+-   Manually assign a `standard_id` using the format:
+
+    -   <participant_id>\_V<visit>\_N<night>\_<recording>
+
+-   Night and recording indices should reflect visit-specific order.
+
+-   If the visit number is unknown or outside defined sessions, assign `VX` as a placeholder.
+
+-   Do **not** modify metadata columns like `edf_filename`, `date_start`, or `quality_flag`.
+
+Once complete, save the updated manifest. You may optionally archive the previous version with a timestamp for traceability:
+
+```{bash}
+cp rename_manifest.csv rename_manifest_2025-07-06.csv
+```
+
+### Step 4: Apply the Rename Manifest (`apply_rename_manifest.sh`)
+
+Run the renaming script to copy newly added files into the processed folders using their standardized names:
+
+```{bash}
+./scripts/preprocessing/apply_rename_manifest.sh
+```
+
+This script is additive—it skips already renamed files and only processes rows that haven’t yet been renamed. Logs record all successfully renamed files and any errors (e.g., missing source files).
+
+### Step 5: Run the Post-Rename Pipeline (`post_rename_pipeline.sh`)
+
+Execute the unified post-renaming pipeline to:
+
+-   Generate `.eannot` files from hypnograms
+
+-   Filter for ≥4-hour recordings
+
+-   Build or update the Luna database
+
+```{bash}
+./scripts/preprocessing/post_rename_pipeline.sh
+```
+
+This script regenerates the full sample list and database cleanly. It is safe to re-run in its entirety after each data update, as it automatically incorporates new files without modifying previously processed results.
+
+### 
+
+### Step 6: Rebuilding the Luna Database
+
+The Luna database (`dreem_raw.db`) is rebuilt each time new data are integrated. This ensures all metadata and signal features are synchronized across the full dataset.
+
+-   The database is overwritten each time for simplicity and consistency.
+
+-   To preserve historical snapshots, optionally version the DB before rebuilding:
+
+    ```{bash}
+    cp dreem_raw.db dreem_raw_2025-07-06.db
+    ```
+
+-   A build log is maintained to track the number of EDFs processed and the date of each build.
+
+### Summary
+
+This incremental workflow ensures that new data are integrated:
+
+-   Without disrupting past records or renamings
+
+-   With deterministic ID assignments
+
+-   In a way that guarantees database consistency and traceability
+
+By preserving `rename_manifest.csv` as the central mapping file and rerunning the pipeline modularly, the system supports scalable longitudinal analysis while maintaining full reproducibility.
+
+## Assigning Group Labels to Participants
+
+To support group-based statistical analysis (e.g., comparing power spectral density across eczema severity groups), we created a reproducible metadata mapping of participant IDs to their assigned group (1–3).
+
+### Why this step is important
+
+Luna itself does not support tagging subjects with custom metadata (e.g., group or age) internally. Instead, downstream tools like R are used to merge this information during analysis. To enable this, we generate a clean, standardized `id_group_map.csv` that links each subject-night file in our sample to the correct group.
+
+We limit this mapping to only the EDF files passing our ≥4-hour sleep threshold, ensuring that metadata aligns exactly with the files used in database creation and analysis (`dreem_chep_psd_sigstats.db`).
+
+### What the script does
+
+-   Reads a cleaned REDCap export (`redcap_clean.csv`) containing subject IDs and group assignments.
+
+-   Loads the 4-hour filtered sample list (`min_4hr_edf.lst`) used to build the Luna database.
+
+-   Extracts the standardized IDs (e.g., `MS01_V1_N1`) from full EDF paths.
+
+-   Merges these IDs with group information from REDCap.
+
+-   Drops unmatched rows (e.g., REDCap entries with no EDF or vice versa).
+
+-   Outputs a two-column CSV (`id_group_map.csv`) containing:
+
+    -   `standard_id`: the unique ID used in Luna and `.db` files
+
+    -   `group`: assigned patient group (1, 2, or 3)
+
+This file can then be used in R for stratified analysis or plotting by merging with outputs like PSD or sigstats. It is integrated into the db later on in analysis.
+
+### Script: `generate_metadata_from_redcap.R`
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(readr)
+library(stringr)
+
+# === Paths (relative to this script) ===
+redcap_path  <- "../../../Redcap/data/cleaned/redcap_clean.csv"
+lst_path     <- "../../data/processed/sample_list/min_4hr_edf.lst"
+output_path  <- "../../data/processed/metadata/id_group_map.csv"
+
+# === Load REDCap data ===
+redcap <- read_csv(redcap_path, show_col_types = FALSE) %>%
+  select(subject_id, group) %>%                      # Keep only ID and group
+  mutate(subject_id = toupper(trimws(subject_id))) %>%  # Clean: uppercase & remove spaces
+  distinct()                                         # Drop any duplicate rows
+
+# === Load list of EDFs ===
+lst <- read_lines(lst_path)
+
+# === Extract IDs ===
+standard_ids <- str_remove(basename(lst), "\\.(edf|eannot)$")
+participant_ids <- str_extract(standard_ids, "MS\\d+")   # Extract MS ID (e.g., MS01)
+
+# === Join with REDCap data ===
+metadata <- tibble(
+  standard_id = standard_ids,
+  subject_id  = participant_ids
+) %>%
+  left_join(redcap, by = "subject_id") %>%     # Add group from REDCap
+  filter(!is.na(group)) %>%                    # Drop entries not found in REDCap
+  select(standard_id, group)
+
+# === Write output ===
+write_csv(metadata, output_path)
+cat("Metadata written to:", output_path, "\n")
+
+```

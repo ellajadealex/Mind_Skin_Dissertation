@@ -1,0 +1,93 @@
+raw_header,label_header
+subject_id,Mind & Skin ID
+redcap_event_name,Event Name
+reg_age,_age
+reg_grp,Subject group
+hw_wght,Weight (kg)
+hw_hght,Height (cm)
+dem_sex,Sex at birth
+dem_eth,Ethnicity
+dem_ethwht,White
+dem_ethblck,"Black, Black British, Caribbean or African"
+dem_ethasn,Asian or Asian  British
+dem_ethmix,Mixed or multiple ethnic groups
+dem_ethoth,Other ethnic group
+dem_ukdiag1,1. An itchy skin condition in the last year*
+dem_ukdiag2,2. Visual flexural dermatitis
+dem_ukdiag3,3. History of flexural involvement
+dem_ukdiag4,4. History of generally dry skin
+dem_ukdiag5,5. Personal history of atopic disease (children under 4 years: family history of atopic disease)
+dem_ukdiag6,6. Onset before the  age of 2 years (not used if child aged < 4 years)
+ectrt_corti1,1. Corticosteroid/s ?
+ectrt_corti1cls,Potency:
+ectrt_add1,Add another corticosteriod?
+ectrt_corti1cls_2,Potency
+ectrt_add2,Add another steroid?
+ectrt_corti1cls_3,Potency
+ectrt_calci1,2. Calcineurin inhibitor/s ?
+ectrt_cakci1drg,Calicineurin drug 1
+ectrt_calci2,Add another calcineurin inhibitor?
+ectrt_cakci2drg_2,Calicineurin drug  2
+ectrt_calci3,Add another calcineurin inhibitor?
+ectrt_cakci3drg_3,Calicineurin drug 3
+ectrt_st,Is the patient starting systemic therapy?
+ectrt_st_add1,1. Add  systemic therapy?
+ectrt_st_name1,1. Name of systemic therapy
+ectrt_st_units1,1. Units of systematic therapy
+ectrt_st_freq1,1. Frequency of systemic therapy
+ectrt_st_add2,2. Add another systemic therapy?
+ectrt_st_name2,2. Name of systemic therapy
+ectrt_st_units2,2. Units of systematic therapy
+ectrt_st_freq2,2. Frequency of systemic therapy
+ectrt_st_add3,3. Add another systemic therapy?
+ectrt_st_name3,3. Name of systemic therapy
+ectrt_st_units3,3. Units of systematic therapy
+ectrt_st_freq3,3. Frequency of systemic therapy
+mh_asthma,Asthma
+mh_rhino,Allergic rhino-conjunctivitis (hayfever)
+mh_fdalle,Food allergies
+mh_ctalle,Contact allergies
+mh_slpdist,Does the patient have a history of sleep disturbance?
+sbfa_twel,Transepidermal (TEWL) water loss measurement (uninvolved skin left volar forearm)
+sbfa_twel_det2,"If yes, please select:"
+sbfa_arm_flux1,ARM 1 Flux (mg/meter sq * height)
+sbfa_arm_flux2,ARM 2 Flux (mg/meter sq * height)
+sbfa_arm_flux3,ARM 3 Flux (mg/meter sq * height)
+sbfa_arm_cur,Decent measurement curves?
+sbfa_temp,Temperature (◦C)
+sbfa_humidity,Room humidity (%)
+sbfa_ph,PH meter reading (volar forearm)
+sbfa_ph_det,"If yes, please select:"
+sbfa_ph1,PH measurment 1
+sbfa_ph2,PH measurment 2
+sbfa_ph3,PH measurment 3
+se_easi,Total score
+bmsi_adverse_score,"Body is an Adversary score:(mean of items : 1, 2, 3, 4)"
+bmsi_capable_score,"Body is an Capable score:(mean of items : 5, 6)"
+bmsi_response_score,"Body is a Responsive score:(mean of items :7, 8)"
+btms_bm_score,"Bodily monitoring score: (sum items: 1, 5, 7, 12, 14, 17)"
+btms_bthreat_score,"Bodily threat appraisals score: (sum items : 2, 3, 4, 6, 8, 9, 10, 11, 13, 15, 16, 18, 19)"
+btms_tscore,Total score
+vas_score,Total score
+skinqol_used,Questionnaire used
+skinqol_score,Total score
+patientreported_quality_of_life_measures_complete,Complete?
+sdc_srbd_scale,1.	SRBD scale (including snoring and sleepiness subscales)
+sdc_sleepiness_scale,2.	Sleepiness subscale
+sdc_restless_leg_scale,3.	Periodic Leg Movement/Restless Legs Syndrome scale
+sdc_mtainsc,"Disorders of initiating and maintaining sleep score (sum the score of the items 1,2,3,4,5,10,11)"
+sdc_mtainsc_tscore,T-Score:
+sdsc_breath,"Sleep Related Breathing Disorders score (sum the score of the items 13,14,15)"
+sdc_breath_tscore,T-Score:
+sdsc_arousal,"Disorders of arousal score (sum the score of the items 17,20,21)"
+sdc_arousal_tscore,T-Score:
+sdsc_transit,"Sleep-Wake Transition Disorders score (sum the score of the items 6,7,8,12,18,19)"
+sdc_transit_tscore,T-Score:
+sdsc_somnol,"Disorders of excessive somnolence score (sum the score of the items 22,23,24,25,26)"
+sdc_somnol_tscore,T-Score:
+sdsc_hyper,"Sleep Hyperhydrosis (sum the score of the items 9,16)"
+sdc_hyper_tscore,T-Score:
+sdsc_tscore,Total score
+total_t_score,Total T-Score:
+ehi_tscore,Total scoreLeft-handedness - Less than -40Ambidexterity=Between -40 and +40Right-handness=More than +40
+wasi_fsiq4,Total FSIQ-4 score

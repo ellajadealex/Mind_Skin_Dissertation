@@ -7,6 +7,136 @@ editor: visual
 
 # Mind&Skin Dreem Analysis
 
+## Overview
+
+### Analysis Goals
+
+#### 1. **Power Spectral Density (PSD) Comparison Across Groups**
+
+-   **By sleep stage**: For each stage (W, N1, N2, N3, R), compare the PSD.
+
+-   **By group**: Plot PSD for the 3 participant groups (e.g., control, mild, severe).
+
+-   **Channels**: Use **F7 and F8** (especially: EEG_F8_O2, EEG_F7_O2).
+
+-   **Plot type**: Frequency (Hz) on x-axis, Power on y-axis. One line per group.
+
+#### 2. **Statistical Comparison**
+
+-   Extract total power in specific bands (e.g., delta: 0.5–4 Hz).
+
+-   Run statistical comparisons (1-way ANOVA) across the 3 groups.
+
+-   Use per-subject averaged values from sigstats or PSD.
+
+#### 3. **Variability Over Multiple Nights**
+
+-   For participants with \>1 night:
+
+    -   Measure **intra-subject PSD variability**
+
+    -   Assess device consistency
+
+### Power Spectral Density (PSD) Analysis by Sleep Stage and Group
+
+#### What is PSD?
+
+Power Spectral Density (PSD) is a method used to quantify the distribution of power across different frequency bands in EEG signals. It transforms time-domain data (e.g., EEG voltage over time) into frequency-domain representations, allowing us to evaluate how much power (i.e., signal strength) exists in specific frequency ranges, such as delta (0.5–4 Hz), theta (4–8 Hz), alpha (8–12 Hz), and others.
+
+In the context of sleep EEG, different frequency bands are known to correlate with different physiological and cognitive states. For example:
+
+-   **Delta power (0.5–4 Hz)** is prominent in deep (N3) sleep.
+
+-   **Alpha power** is typically reduced in sleep but can be a marker of wakefulness or arousal.
+
+-   **Spindle and beta activity** may relate to sleep architecture stability or disturbance.
+
+#### Why PSD is Useful for This Study
+
+In this pediatric eczema study, comparing PSD across severity groups allows us to:
+
+-   **Quantify sleep differences** objectively beyond clinical scores or subjective reports.
+
+-   **Detect neurophysiological signatures** of inflammation, itching, or sleep fragmentation.
+
+-   **Compare signal characteristics** across groups in each sleep stage to see if certain EEG dynamics are altered in more severe eczema.
+
+This analysis is especially relevant given the Dreem device’s multi-night home-based acquisition — allowing assessment of **naturalistic, ecologically valid sleep data** across groups.
+
+#### Goals of This Step
+
+1.  **Compare PSD across sleep stages and groups**
+
+    -   For each sleep stage (W, N1, N2, N3, R), we will generate PSD curves.
+
+    -   Each curve will show average PSD (power vs. frequency) for each group.
+
+    -   One plot per stage, with 3 lines (Group 1–3).
+
+    -   Frequency (Hz) on x-axis, power (uV²/Hz) on y-axis.
+
+2.  **Use clean and consistent EEG signals**
+
+    -   Only channels involving F7 and F8 (frontal) will be analyzed.
+
+    -   These channels were chosen due to lower noise in Dreem recordings, per prior QC and Luna guidance.
+
+    -   Specific channels include: `EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2`
+
+3.  **Extract summary statistics from PSD**
+
+    -   Using Luna’s `SIGSTATS` command, we can compute total power within specific frequency bands.
+
+    -   For example, we will extract **delta power** (0.5–4 Hz) and compare across groups.
+
+    -   This becomes input for statistical tests such as **one-way ANOVA**.
+
+4.  **Assess night-to-night variability**
+
+    -   For participants with multiple nights, we will compare PSD estimates across those nights.
+
+    -   This gives insight into:
+
+        -   **Intra-subject variability**
+
+        -   **Signal stability across nights**
+
+        -   **Device consistency**
+
+#### Why Stratifying by Sleep Stage Matters
+
+Each sleep stage has unique EEG spectral characteristics:
+
+-   **Wake (W)**: Higher alpha/beta
+
+-   **N1**: Mixed low-frequency patterns
+
+-   **N2**: Spindles, theta
+
+-   **N3**: Dominated by delta power
+
+-   **REM (R)**: Lower amplitude, mixed frequencies
+
+Analyzing PSD without stratifying by stage would collapse meaningful variation — so Luna’s ability to compute stage-specific PSD (`PSD STAGE`) is crucial.
+
+#### Tools Used
+
+We use Luna’s:
+
+-   `PSD` command to estimate spectral power
+
+-   `SIGSTATS` to extract band-specific power summaries
+
+-   `CHEP` to apply signal quality masks (prior step)
+
+-   `destrat` to extract outputs for R
+
+-   R to merge PSD data with `id_group_map.csv` for visualization and statistical testing
+
+## Setup
+
+### Load Necessary Libraries
+
 ```{r}
 library(luna)
 library(ggplot2)
@@ -18,4 +148,128 @@ library(lubridate) # for working with dates
 library(scales)   # to access breaks/formatting functions
 library(gridExtra)
 library(tidyr)
+```
+
+### Load the Database
+
+```{r}
+# Load in the Database
+chep_psd_sigstats <- ldb("../../data/processed/luna_outputs/dreem_chep_psd_sigstats.db")
+```
+
+```{r}
+chep_psd_sigstats_stage <- ldb("../../data/processed/luna_outputs/dreem_chep_psd_sigstats_stage.db")
+```
+
+```{bash}
+# W stage
+luna /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/sample_list/min_4hr_edf.lst \
+  -o /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/luna_outputs/dreem_psd_by_stage.db \
+  -s 'EPOCH & MASK ifnot=W & RE & TAG STAGE/W & PSD spectrum'
+
+# N1 stage
+luna /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/sample_list/min_4hr_edf.lst \
+  -a /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/luna_outputs/dreem_psd_by_stage.db \
+  -s 'EPOCH & MASK ifnot=N1 & RE & TAG SS/N1 & PSD spectrum'
+
+# N2 stage
+luna /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/sample_list/min_4hr_edf.lst \
+  -a /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/luna_outputs/dreem_psd_by_stage.db \
+  -s 'EPOCH & MASK ifnot=N2 & RE & TAG SS/N2 & PSD spectrum'
+
+# N3 stage
+luna /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/sample_list/min_4hr_edf.lst \
+  -a /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/luna_outputs/dreem_psd_by_stage.db \
+  -s 'EPOCH & MASK ifnot=N3 & RE & TAG SS/N3 & PSD spectrum'
+
+# REM stage
+luna /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/sample_list/min_4hr_edf.lst \
+  -a /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/luna_outputs/dreem_psd_by_stage.db \
+  -s 'EPOCH & MASK ifnot=R & RE & TAG SS/R & PSD spectrum'
+
+```
+
+```{r}
+dreem_psd_by_stage <- ldb("../../data/processed/luna_outputs/dreem_psd_by_stage.db")
+```
+
+Current issues:\
+
+## Analysis
+
+### Step 1: Extract PSD and SIGSTATS Tables
+
+Luna’s output database (`dreem_chep_psd_sigstats.db`) already contains structured tables produced from prior analysis steps using the `PSD` and `SIGSTATS` commands. When loaded with `ldb()`, the database is parsed into a list of data frames that reflect different levels of stratification (e.g., per-channel, per-epoch, per-frequency).
+
+There is no need to use `destrat()` here because the database format is already optimized for direct access.
+
+We extract two key tables:
+
+-   `PSD$CH_F`: contains power values (`PSD`) at each frequency (`F`) for each channel and session.
+
+-   `SIGSTATS$CH_E`: contains per-epoch band power summaries (`H1`, `H2`, etc.) for each channel and sleep stage.
+
+These are the primary inputs for PSD visualization and summary statistic extraction.
+
+```{r}
+# Extract per-frequency PSD (for spectral curves)
+psd <- chep_psd_sigstats$PSD$CH_F
+
+# Extract per-epoch SIGSTATS (for band power analysis)
+sig <- chep_psd_sigstats$SIGSTATS$CH_E
+```
+
+## Step 2: Merge PSD/SIGSTATS with Group Metadata
+
+To compare spectral features across participant groups (e.g., control, mild, severe eczema), we must first link each session’s `standard_id` to its assigned group. We previously created this mapping in `id_group_map.csv`.
+
+This step ensures that both the `psd` and `sig` tables include a `group` column — which is necessary for plotting group-level averages and performing statistical comparisons.
+
+We do this by:
+
+1.  Reading the metadata file (`id_group_map.csv`) containing the `standard_id` and `group` columns.
+
+2.  Renaming the `ID` column in both `psd` and `sig` tables to `standard_id` to match the metadata.
+
+3.  Performing a `left_join()` to add the `group` to each row.
+
+```{r}
+# Load group assignment metadata
+groups <- readr::read_csv("../../data/processed/metadata/id_group_map.csv")
+
+# Join group metadata to PSD data
+psd <- psd %>%
+  rename(standard_id = ID) %>%
+  left_join(groups, by = "standard_id")
+
+# Join group metadata to SIGSTATS data
+sig <- sig %>%
+  rename(standard_id = ID) %>%
+  left_join(groups, by = "standard_id")
+```
+
+## Step 3: Filter PSD by Sleep Stage and EEG Channel
+
+To visualize group differences, we start by selecting **one combination** of:
+
+-   **Sleep stage** (e.g., N3 — deep sleep)
+
+-   note: for now we are using all channels but that can be changed later
+
+This lets us generate a clean line plot of **power vs. frequency**, averaged within each group.
+
+We’ll begin with:
+
+-   **Stage:** `N3`
+
+Later, we can scale this to loop or facet over more combinations.
+
+```{r}
+names(chep_psd_sigstats)
+names(chep_psd_sigstats$PSD)
+```
+
+```{r}
+psd_n3 <- psd %>%
+  filter(STAGE == "N3")
 ```

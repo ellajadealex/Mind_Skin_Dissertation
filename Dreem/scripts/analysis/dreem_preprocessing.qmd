@@ -457,7 +457,8 @@ To run on command line (from scripts directory):
 ```
 
 ### 
-Step 2. Manual Mapping via rename_manifest 
+
+Step 2. Manual Mapping via rename_manifest
 
 After generating `id_map.csv`, the next step is to manually define standardized names for each EDF and hypnogram file by creating a structured mapping file called `rename_manifest.csv`.
 
@@ -531,8 +532,7 @@ This file explicitly maps raw Dreem filenames to standardized, analysis-ready ID
 
     -   `quality_flag`
 
-5.  **Save the file.**
-    This manifest will be used as the authoritative source for renaming and copying files into their final locations in Step 3.
+5.  **Save the file.** This manifest will be used as the authoritative source for renaming and copying files into their final locations in Step 3.
 
 This process enables a reproducible mapping from raw filenames to clean, standardized filenames, while maintaining transparency and traceability. It accommodates edge cases such as multiple recordings per night using the final `_XX` suffix convention.
 
@@ -1230,6 +1230,7 @@ Run the metadata extraction script to update `id_map.csv`:
 This generates a complete listing of all available EDF/hypnogram pairs, with metadata such as start/end times, quality flags, and original filenames. New recordings—whether from new participants or additional visits—will appear as new rows in this file.
 
 ### 
+
 Step 3: Update the Rename Manifest (`rename_manifest.csv`)
 
 Rather than replacing the entire manifest, **append only the new rows** from the regenerated `id_map.csv` into your existing `rename_manifest.csv`. This ensures that all past mappings remain intact and reproducible.
@@ -1279,6 +1280,7 @@ Execute the unified post-renaming pipeline to:
 This script regenerates the full sample list and database cleanly. It is safe to re-run in its entirety after each data update, as it automatically incorporates new files without modifying previously processed results.
 
 ### 
+
 Step 6: Rebuilding the Luna Database
 
 The Luna database (`dreem_raw.db`) is rebuilt each time new data are integrated. This ensures all metadata and signal features are synchronized across the full dataset.
@@ -1318,7 +1320,7 @@ Command File: `chep_psd_sigstats.txt`
 EPOCH                                  % Define 30s epochs
 MASK ifnot=N1,N2,N3,R,W                % Keep only standard sleep stages
 
-SIGNALS keep=EEG_F7_O2,EEG_F8_O2       % Use less noisy EEG channels
+SIGNALS keep=EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2
 
 CHEP-MASK ep-th=3,3                    % Drop entire epoch if all selected channels are bad
 CHEP-MASK ch-th=2                      % Drop any channel that fails in 2+ epochs
@@ -1335,36 +1337,88 @@ Running this on the command line for testing...
 ```{bash}
 luna /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/sample_list/min_4hr_edf.lst \
   -o /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/luna_outputs/dreem_chep_psd_sigstats.db \
-  < /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/scripts/luna_cmds/chep_psd_sigstats.txt \
-  > /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/logs/db_build/dreem_chep_psd_sigstats_log.txt
+  > /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/scripts/luna_cmds/chep_psd_sigstats.txt \
+ 
 ```
 
+\*\* note: the output (/Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/logs/db_build/dreem_chep_psd_sigstats_log.txt) for the chep dump did not do anything....
+
+trying with stage
+
+```{bash}
+luna /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/sample_list/min_4hr_edf.lst \
+  -o /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/luna_outputs/dreem_chep_psd_sigstats_stage.db \
+  < /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/scripts/luna_cmds/chep_psd_sigstats_stage.txt \
+  > /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/logs/db_build/dreem_chep_psd_sigstats_stage_log.txt
+```
+
+## Assigning Group Labels to Participants
+
+To support group-based statistical analysis (e.g., comparing power spectral density across eczema severity groups), we created a reproducible metadata mapping of participant IDs to their assigned group (1–3).
+
+### Why this step is important
+
+Luna itself does not support tagging subjects with custom metadata (e.g., group or age) internally. Instead, downstream tools like R are used to merge this information during analysis. To enable this, we generate a clean, standardized `id_group_map.csv` that links each subject-night file in our sample to the correct group.
+
+We limit this mapping to only the EDF files passing our ≥4-hour sleep threshold, ensuring that metadata aligns exactly with the files used in database creation and analysis (`dreem_chep_psd_sigstats.db`).
+
+### What the script does
+
+-   Reads a cleaned REDCap export (`redcap_clean.csv`) containing subject IDs and group assignments.
+
+-   Loads the 4-hour filtered sample list (`min_4hr_edf.lst`) used to build the Luna database.
+
+-   Extracts the standardized IDs (e.g., `MS01_V1_N1`) from full EDF paths.
+
+-   Merges these IDs with group information from REDCap.
+
+-   Drops unmatched rows (e.g., REDCap entries with no EDF or vice versa).
+
+-   Outputs a two-column CSV (`id_group_map.csv`) containing:
+
+    -   `standard_id`: the unique ID used in Luna and `.db` files
+
+    -   `group`: assigned patient group (1, 2, or 3)
+
+This file can then be used in R for stratified analysis or plotting by merging with outputs like PSD or sigstats.
+
+### Script: `generate_metadata_from_redcap.R`
+
 ```{r}
-library(luna)
-library(ggplot2)
-library(ggpubr)
+# Load required libraries
 library(dplyr)
 library(readr)
 library(stringr)
-library(lubridate) # for working with dates
-library(scales)   # to access breaks/formatting functions
-library(gridExtra)
-library(tidyr)
-```
 
-```{r}
-getwd()
-```
+# === Paths (relative to this script) ===
+redcap_path  <- "../../../Redcap/data/cleaned/redcap_clean.csv"
+lst_path     <- "../../data/processed/sample_list/min_4hr_edf.lst"
+output_path  <- "../../data/processed/metadata/id_group_map.csv"
 
-\
+# === Load REDCap data ===
+redcap <- read_csv(redcap_path, show_col_types = FALSE) %>%
+  select(subject_id, group) %>%                      # Keep only ID and group
+  mutate(subject_id = toupper(trimws(subject_id))) %>%  # Clean: uppercase & remove spaces
+  distinct()                                         # Drop any duplicate rows
 
-```{r}
-luna_raw <- ldb("/Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/luna_outputs/dreem_raw.db")
-```
+# === Load list of EDFs ===
+lst <- read_lines(lst_path)
 
-\
+# === Extract IDs ===
+standard_ids <- str_remove(basename(lst), "\\.(edf|eannot)$")
+participant_ids <- str_extract(standard_ids, "MS\\d+")   # Extract MS ID (e.g., MS01)
 
-```{get}
-luna_raw <- ldb("/../../data/processed/luna_outputs/dreem_raw.db")
+# === Join with REDCap data ===
+metadata <- tibble(
+  standard_id = standard_ids,
+  subject_id  = participant_ids
+) %>%
+  left_join(redcap, by = "subject_id") %>%     # Add group from REDCap
+  filter(!is.na(group)) %>%                    # Drop entries not found in REDCap
+  select(standard_id, group)
+
+# === Write output ===
+write_csv(metadata, output_path)
+cat("Metadata written to:", output_path, "\n")
 
 ```

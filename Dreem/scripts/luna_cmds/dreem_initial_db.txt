@@ -1,0 +1,28 @@
+% dreem_db_all_stages.txt
+
+EPOCH                          % Define 30s epochs
+
+SIGNALS keep=EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2
+                                % Select key EEG channels
+
+MASK ifnot=N1,N2,N3,R,W        % Keep only valid sleep stages
+
+RESTRUCTURE                    % Drop masked epochs
+
+FILTER bandpass=0.3,35         % Bandpass filter (0.3–35 Hz)
+       ripple=0.01             % Filter ripple
+       tw=0.5                  % Transition width
+
+CHEP-MASK ep-th=3,3            % Epoch-wise outlier detection
+
+CHEP epochs dump               % Set epoch mask from CHEP; dump it
+
+CHEP-MASK ch-th=2              % Channel-wise outlier detection
+
+CHEP channels=0.3 dump         % Drop channels with >30% bad cheps
+
+RESTRUCTURE                    % Apply all masks
+
+SIGSTATS epoch                 % Epoch-level signal stats
+
+PSD spectrum                   % Power spectral density

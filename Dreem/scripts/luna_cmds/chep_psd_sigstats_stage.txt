@@ -1,0 +1,22 @@
+% luna_db_raw.txt
+% Build a db using only the clean signals, and with CHEP before PSD & SIGSTATS
+
+EPOCH                                  % Define 30s epochs
+MASK ifnot=N1,N2,N3,R,W                % Keep only standard sleep stages
+
+SIGNALS keep=EEG_F7_O1,EEG_F8_O2,EEG_F8_F7,EEG_F8_O1,EEG_F7_O2
+
+CHEP-MASK ep-th=3,3                    % Drop entire epoch if all selected channels are bad
+CHEP-MASK ch-th=2                      % Drop any channel that fails in 2+ epochs
+CHEP dump                              % Output CHEP summary to log
+
+RESTRUCTURE                            % Apply masking and remove bad data
+
+TAG STAGE/W
+TAG STAGE/N1
+TAG STAGE/N2
+TAG STAGE/N3
+TAG STAGE/R
+
+PSD spectrum strat=STAGE              % Compute PSD per sleep stage
+SIGSTATS epoch                         % Per-epoch signal summary stats

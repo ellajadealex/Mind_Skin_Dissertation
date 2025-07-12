@@ -21,6 +21,6 @@ echo "--- Step 2: Filter EDFs ≥ 4 hours ---" | tee -a "$LOG_MASTER"
 
 # Step 3: Build raw Luna DB
 echo "--- Step 3: Build Luna raw DB ---" | tee -a "$LOG_MASTER"
-"$PROJECT_ROOT/scripts/preprocessing/build_raw_luna_db.sh" >> "$LOG_MASTER" 2>&1
+"$PROJECT_ROOT/scripts/preprocessing/build_initial_dreem_db.sh" >> "$LOG_MASTER" 2>&1
 
 echo "Preprocessing pipeline complete. Review log at: $LOG_MASTER" | tee -a "$LOG_MASTER"

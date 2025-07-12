@@ -242,7 +242,6 @@ ethblck INTEGER,
 ethasn INTEGER,
 ethmix INTEGER,
 ethoth INTEGER,
-
 ```
 
 ```{sql}
