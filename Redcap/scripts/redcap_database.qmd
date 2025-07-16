@@ -7,18 +7,26 @@ editor: visual
 
 # Redcap Database
 
-## Setup
+## Cleaning
 
-### Setting Base Directory
+### Setup
 
-Assuming that this quarto is in the Redcap/scripts folder, we want to set it to the Redcap folder.
+#### Setting Base Directory
+
+Assuming that this quarto is in the Redcap/scripts folder, we want to set the working directory to the Redcap folder.
 
 ```{r setup, include=FALSE}
 knitr::opts_knit$set(root.dir = normalizePath(".."))
 
 ```
 
-### Loading Necessary Libraries
+Ensure that this worked.
+
+```{r}
+getwd()
+```
+
+#### Loading Necessary Libraries
 
 ```{r}
 library(tidyverse)
@@ -27,70 +35,108 @@ library(dplyr)
 library(readr)
 ```
 
-### Loading Raw Data
+### Metadata (raw) Header Dictionary
+
+This step generates a reference table that maps REDCap's internal variable names to the original human-readable column labels provided in the labeled data export. While the labeled export is easier to interpret, it is not suitable for data processing due to invalid or duplicated column names. Conversely, the coded export is structurally clean but not interpretable on its own.
+
+-   It allows analysts and collaborators to understand what each variable represents without needing to refer back to the REDCap UI or PDF instrument.
+
+-   By storing the header labels separately, you can clean, transform, or load data using canonical variable names—while still having access to their descriptive labels for reporting or documentation.
+
+-   This mapping can later be extended with additional metadata (e.g., field type, units, forms) to inform the construction of normalized SQL tables.
 
 ```{r}
+# File paths
+coded_data_path      <- "data/raw/redcap_coded_export_v40_2025-01-22.csv"
+labels_data_path   <- "data/raw/redcap_labeled_export_v40_2025-01-22.csv"
+header_dict_path   <- "data/metadata/redcap_raw_headers.csv"
 
-# Read Redcap csv with snake_case
-redcap_raw <- read_csv("data/raw/MindSkinVer40_DATA_2025-01-22_1418.csv")
+# Extract canonical REDCap variable names
+coded_colnames <- colnames(read_csv(coded_data_path, n_max = 0, show_col_types = FALSE))
 
-# Preview the raw database
-redcap_raw
-```
-
-### Metadata: Data Dictionary
-
-Here, we are creating a data dictionary that shows the human-readable, snake_case labels, and variable coding all in one place.
-
-When loading the DATA_LABELS csv into R, the names of the columns are renamed for each to be unique, since there are multiple repeats. So we can't just load it in normally.
-
-Also, for this to work, there have to be equal numbers of columns in both .csv files. The stopifnot function ensures that before continuing.
-
-```{r}
-# Extract clean column labels from the LABELS file
-label_names <- names(read_csv("data/raw/MindSkinVer40_DATA_LABELS_2025-01-22_1419.csv", col_names = TRUE, n_max = 0))
-
-# Read just the first line (header) of the LABELS CSV as a plain string
-header_line <- read_lines("data/raw/MindSkinVer40_DATA_LABELS_2025-01-22_1419.csv", n_max = 1)
-
-# Split the header string on commas, handling quoted strings
-label_names <- read.csv(text = header_line, header = FALSE, stringsAsFactors = FALSE) |> 
+# Extract human-readable labels from first row of labeled CSV
+label_header_row <- read_lines(labels_data_path, n_max = 1)
+label_colnames   <- read.csv(text = label_header_row, header = FALSE, stringsAsFactors = FALSE) |> 
   as.character()
 
-# Confirm result
-label_names
+# Ensure column alignment
+stopifnot(length(coded_colnames) == length(label_colnames))
 
-# Make sure they align
-stopifnot(length(colnames(redcap_raw)) == length(label_names))
-
-# Create a raw label dictionary
-label_dictionary <- tibble(
-  variable_name = colnames(redcap_raw),
-  label = label_names
+# Create the header dictionary
+header_dictionary <- tibble(
+  coded_header = coded_colnames,
+  label_header         = label_colnames
 )
 
-# Save the dictionary
-write_csv(label_dictionary, "data/metadata/label_dictionary_raw.csv")
+# Save to metadata directory
+write_csv(header_dictionary, header_dict_path)
 ```
 
-## Filtering
+### Aligning REDCap Exports: Retaining Readable Data with Structured Column Names
 
-### Row Filtering
+To prepare our REDCap dataset for use in a structured database and statistical analysis, we needed to ensure two key conditions were met:
 
-Filtering out the rows with "logs_arm_1" and "end_of_study_arm_1", as they are not necessary. We will keep only baseline visit and 6 month followup.
+1.  **Column names should be machine-friendly** (i.e., `snake_case`, no spaces or symbols, no duplicates) for compatibility with SQL databases and R.
+
+2.  **Values should remain human-readable**, preserving categorical labels such as “Yes,” “Group 2 (topical therapy),” etc., to avoid relying on separate lookup tables.
+
+REDCap provides two parallel CSV exports:
+
+-   One with **clean variable names** (`redcap_coded_export_v40_2025-01-22.csv`)
+
+-   Another with **human-readable values** (`redcap_labeled_export_v40_2025-01-22.csv`)
+
+The goal was to **combine these two**: keep the readable values from the labeled export, but apply the clean column names from the coded export.
+
+#### Script: `aligning_redcap_exports.R`
+
+```{r}
+library(readr)
+
+# Define file paths
+coded_data_path <- "data/raw/redcap_coded_export_v40_2025-01-22.csv"
+labels_data_path <- "data/raw/redcap_labeled_export_v40_2025-01-22.csv"
+output_path <- "data/cleaned/redcap_combined_export.csv"
+
+# Read in the datasets
+coded_data <- read_csv(coded_data_path, show_col_types = FALSE)
+labels_data <- read_csv(labels_data_path, col_names = FALSE, skip = 1, show_col_types = FALSE)
+
+# Apply the coded column names to the human-readable label data
+colnames(labels_data) <- colnames(coded_data)
+
+# Save the cleaned result
+write_csv(labels_data, output_path)
+```
+
+### Loading in the Data
+
+```{r}
+# Read Redcap combined csv
+redcap_data <- read_csv("data/cleaned/redcap_combined_export.csv")
+
+# Preview the raw database
+redcap_data
+```
+
+### Filtering
+
+#### Row Filtering
+
+Filtering out the rows with "Logs" and "End of Study", as they are not necessary. We will keep only "Baseline - Visit 1" and "6 Month Followup - Visit 3".
 
 ```{r}
 # Remove any non-data events: logs, end-of-study summaries
-redcap_filtered <- redcap_raw %>%
-  filter(!redcap_event_name %in% c("logs_arm_1", "end_of_study_arm_1"))
+redcap_filtered <- redcap_data %>%
+  filter(!redcap_event_name %in% c("Logs", "End of Study"))
 
 # Preview changes made
 redcap_filtered
 ```
 
-### Column Filtering
+#### Column Filtering
 
-We are going off of the list of necessary columns, per the PHD student in my group.
+We are going off of the list of necessary columns, per the recommendations of the PHD student in my group.
 
 First, we will define a list of variables to keep.
 
@@ -101,24 +147,46 @@ keep_vars <- c(
   "hw_wght", "hw_hght", "dem_sex", "dem_eth",
   "dem_ethwht", "dem_ethblck", "dem_ethasn", "dem_ethmix", "dem_ethoth",
   "dem_ukdiag1", "dem_ukdiag2", "dem_ukdiag3", "dem_ukdiag4", "dem_ukdiag5", "dem_ukdiag6",
-  "ectrt_corti1", "ectrt_corti1cls", "ectrt_add1", "ectrt_corti1cls_2", "ectrt_add2", "ectrt_corti1cls_3",
-  "ectrt_calci1", "ectrt_cakci1drg", "ectrt_calci2", "ectrt_cakci2drg_2", "ectrt_calci3", "ectrt_cakci3drg_3",
-  "ectrt_st", "ectrt_st_add1",
-  "mh_asthma", "mh_rhino", "mh_fdalle", "mh_ctalle", "mh_slpdist",
-  "sbfa_twel", "sbfa_twel_det2", "sbfa_arm_flux1", "sbfa_arm_flux2", "sbfa_arm_flux3",
-  "sbfa_arm_cur", "sbfa_temp", "sbfa_humidity",
-  "sbfa_ph", "sbfa_ph_det", "sbfa_ph1", "sbfa_ph2", "sbfa_ph3",
-  "se_easi", "bmsi_adverse_score", "bmsi_capable_score", "bmsi_response_score",
-  "btms_bm_score", "btms_bthreat_score", "btms_tscore",
-  "vas_score", "skinqol_used", "skinqol_score", "patientreported_quality_of_life_measures_complete",
-  "sdc_srbd_scale", "sdc_sleepiness_scale", "sdc_restless_leg_scale",
-  "sdc_mtainsc", "sdc_mtainsc_tscore",
-  "sdsc_breath", "sdc_breath_tscore", "sdsc_arousal", "sdc_arousal_tscore",
-  "sdsc_transit", "sdc_transit_tscore", "sdsc_somnol", "sdc_somnol_tscore",
-  "sdsc_hyper", "sdc_hyper_tscore", "sdsc_tscore", "total_t_score",
-  "ehi_tscore", "wasi_fsiq4", "gonogo_resp", "simon_presp",
-  "cpt_prerrors", "mack_mskips", "mack_iskips"
+
+  "ectrt_corti1",       "ectrt_corti1cls",      "ectrt_add1",
+  "ectrt_corti1cls_2",  "ectrt_add2",           "ectrt_corti1cls_3",
+  "ectrt_calci1",       "ectrt_cakci1drg",      "ectrt_calci2",
+  "ectrt_cakci2drg_2",  "ectrt_calci3",         "ectrt_cakci3drg_3",
+  "ectrt_st",
+  "ectrt_st_add1",      "ectrt_st_name1",       "ectrt_st_units1",     "ectrt_st_freq1",
+  "ectrt_st_add2",      "ectrt_st_name2",       "ectrt_st_units2",     "ectrt_st_freq2",
+  "ectrt_st_add3",      "ectrt_st_name3",       "ectrt_st_units3",     "ectrt_st_freq3",
+
+  "mh_asthma",          "mh_rhino",             "mh_fdalle",           "mh_ctalle",   "mh_slpdist",
+
+  "sbfa_twel",          "sbfa_twel_det2",
+  "sbfa_arm_flux1",     "sbfa_arm_flux2",       "sbfa_arm_flux3",
+  "sbfa_arm_cur",       "sbfa_temp",            "sbfa_humidity",
+  "sbfa_ph",            "sbfa_ph_det",          "sbfa_ph1",
+  "sbfa_ph2",           "sbfa_ph3",
+
+  "se_easi",
+
+  "bmsi_adverse_score", "bmsi_capable_score",   "bmsi_response_score",
+
+  "btms_bm_score",      "btms_bthreat_score",   "btms_tscore",
+
+  "vas_score",          "skinqol_used",         "skinqol_score",
+  "patientreported_quality_of_life_measures_complete",
+
+  "sdc_srbd_scale",     "sdc_sleepiness_scale", "sdc_restless_leg_scale",
+  "sdc_mtainsc",        "sdc_mtainsc_tscore",
+
+  "sdsc_breath",        "sdc_breath_tscore",
+  "sdsc_arousal",       "sdc_arousal_tscore",
+  "sdsc_transit",       "sdc_transit_tscore",
+  "sdsc_somnol",        "sdc_somnol_tscore",
+  "sdsc_hyper",         "sdc_hyper_tscore",
+  "sdsc_tscore",        "total_t_score",
+
+  "ehi_tscore",         "wasi_fsiq4"
 )
+
 ```
 
 Then filter for those variables only.
@@ -132,260 +200,392 @@ redcap_core_vars <- redcap_filtered %>%
 redcap_core_vars
 ```
 
-Lastly, save as redcap_core_vars.csv
-
-```{r}
-# Save cleaned core dataset
-write_csv(redcap_core_vars, "data/cleaned/redcap_core_vars.csv")
-```
-
-## Cleaning
-
-### Labels
-
-```{r}
-# Load label dictionary
-label_dict <- read_csv("data/metadata/label_dictionary_clean.csv")
-
-# Create a named vector for renaming: names = new (clean), values = current (snake_case)
-rename_vector <- setNames(label_dict$snake_case, label_dict$clean)
-
-# Safety check: preview which columns will be renamed
-matched_cols <- intersect(names(rename_vector), colnames(redcap_core_vars))
-cat("Columns that will be renamed:\n")
-print(rename_vector[matched_cols])
-
-# Rename the columns
-redcap_clean_labels <- redcap_core_vars %>%
-  rename(any_of(rename_vector))
-
-# Preview result
-redcap_clean_labels
-```
-
 ### Renaming Subject IDs and Event Names
 
-Throughout the rest of the study, the subject IDs are in the format MSXX. We want that to be consistent within this database, so we will change the names from 728-X.
-
-There is also an unnecessary "*arm*\_1" in every event name row, which we will remove.
+To ensure consistency with the rest of the study, subject IDs were reformatted from the REDCap export format `728-X` to the standardized format `MSXX`, which is used throughout all datasets and documentation (e.g., `728-4` → `MS04`). Additionally, a correction was applied to the visit label `"6 Month Followup - Visit 3"`, which was erroneously labeled in the REDCap export. In the study protocol, this is actually the second visit, so it was renamed to `"6 Month Followup - Visit 2"` for accuracy. These updates align the data structure with the study's conventions and reduce potential confusion during analysis and integration.
 
 ```{r}
-
-unique(redcap_clean_labels$visit_number)
-
-# Clean subject_id and redcap_event_name, save as new object
-redcap_clean <- redcap_clean_labels %>%
+# Clean subject IDs and fix visit naming error
+redcap_clean <- redcap_core_vars %>%
   mutate(
-    # Convert subject_id like "728-X" → "MSXX"
     subject_id = str_pad(str_extract(subject_id, "\\d+$"), width = 2, pad = "0"),
     subject_id = paste0("MS", subject_id),
-
-    # Convert visit_number (already renamed) into numeric ID: 1 = baseline, 2 = follow-up
-    visit_number = case_when(
-      visit_number == "baseline__visit_1_arm_1" ~ 1L,
-      visit_number == "6_month_followup_arm_1" ~ 2L,
-      TRUE ~ NA_integer_
+    redcap_event_name = case_when(
+      redcap_event_name == "6 Month Followup - Visit 3" ~ "6 Month Followup - Visit 2",
+      TRUE ~ redcap_event_name
     )
   )
 
-# Preview to ensure changes made
-redcap_clean
-
-
-# Save cleaned dataset
-write_csv(redcap_clean, "data/cleaned/redcap_clean.csv")
+# Save final cleaned dataset
+write_csv(redcap_clean, "data/cleaned/redcap_cleaned.csv")
 ```
 
-### Further Name Cleaning
+### Metadata (clean) Header Dictionary
 
-## Database Schema
-
-### Core Tables
-
-#### Participant
-
-```{sql}
-CREATE TABLE participant (
-    participant_id INT PRIMARY KEY AUTO_INCREMENT,
-    subject_id VARCHAR(10) NOT NULL,
-    age DECIMAL(4,2),
-    grp INTEGER,
-    sex INTEGER,
-    mh_asthma INTEGER,
-    mh_rhino INTEGER,
-    mh_fdalle INTEGER,
-    mh_ctalle INTEGER,
-    mh_slpdist INTEGER,
-    corti1 INTEGER,
-    corti1_potency INTEGER,
-    corti2 INTEGER,
-    corti2_potency INTEGER,
-    corti3 INTEGER,
-    corti3_potency INTEGER,
-    calci1 INTEGER,
-    cakci1_name VARCHAR(50),
-    calci2 INTEGER,
-    cakci2_name VARCHAR(50),
-    calci3 INTEGER,
-    calci3_potency VARCHAR(50),
-    st INTEGER,
-    st_add INTEGER,
-);
-```
-
-ethnicity
-
-```         
-eth INTEGER,
-ethwht INTEGER,
-ethblck INTEGER,
-ethasn INTEGER,
-ethmix INTEGER,
-ethoth INTEGER,
-```
-
-```{sql}
-CREATE TABLE ethnicity1(
-
-
-);
-```
+After filtering the dataset to retain only relevant variables for analysis, we generated a cleaned header dictionary that includes only those selected fields. This step ensures that downstream documentation, reports, and database schema definitions remain focused and aligned with the actual working dataset. By removing unused variables from the dictionary, we improve clarity, reduce redundancy, and make our metadata easier to maintain and interpret.
 
 ```{r}
+# Load the full header dictionary
+header_dictionary <- read_csv("data/metadata/redcap_raw_headers.csv", show_col_types = FALSE)
 
+# Filter to only the variables you kept
+header_dictionary_cleaned <- header_dictionary %>%
+  filter(coded_header %in% keep_vars)
+
+# Save cleaned version
+write_csv(header_dictionary_cleaned, "data/metadata/redcap_cleaned_headers.csv")
 ```
 
-```         
+### Incorporating Cognitive Testing Data
 
-ethnicity1
-ethnicity1_id 
+The cognitive testing (CT) results are stored separately from the main REDCap export. Since many of the CT variables are relevant to our final schema—particularly the `domain`, `assessment`, and `measurement` tables—we need to integrate this data into the core cleaned dataset. Doing this now allows us to maintain alignment across participant visits and ensures these variables are available during database collation.
 
-ethnicity_1_2
+#### Load Raw CT Data
 
-ethnicity2
-ethnicity2_id
+We begin by loading the raw CT data from the `data/raw` directory. We also define paths to the cleaned REDCap data and the output files we'll create for both the cleaned CT dataset and the merged result.
+
+```{r}
+# Define file paths
+ct_raw_path <- "data/raw/cognitive_testing_raw.csv"
+redcap_cleaned_path <- "data/cleaned/redcap_cleaned.csv"
+ct_cleaned_path <- "data/cleaned/ct_cleaned.csv"
+output_path <- "data/cleaned/ct_redcap_cleaned.csv"
+
+# Load CT data
+ct_data <- read_csv(ct_raw_path)
 ```
 
-#### VIsit
+#### Clean CT Data
 
-```{sql}
-CREATE TABLE visit (
-    visit_id INT PRIMARY KEY AUTO_INCREMENT,
-    visit_number VARCHAR(50) NOT NULL,
-    
-    FOREIGN KEY (participant_id) REFERENCES participants(subject_id)
-);
+To ensure the cognitive testing (CT) data aligns with the REDCap dataset, we perform a series of structured transformations. We begin by harmonizing the participant identifiers: any single-digit IDs like `"MS1"` are zero-padded to match the REDCap format (e.g., `"MS01"`), ensuring consistent subject references across datasets.
+
+Next, we standardize the visit information. The CT dataset uses numeric or label-like visit markers (e.g., `"0"` or `"VISIT 2"`), which we translate into the descriptive format used in REDCap (`"Baseline - Visit 1"` and `"6 Month Followup - Visit 2"`). This enables reliable merging by visit.
+
+We then rename the key identifier columns (`subject` → `subject_id`, `visit` → `redcap_event_name`) and reposition them at the front of the dataset for clarity.
+
+Finally, we clean up by removing the now-redundant `subject`, `visit`, and `Group` columns, along with an unnamed index column likely introduced during export. The result is a clean, schema-aligned version of the CT dataset, ready for integration.
+
+```{r}
+ct_data <- ct_data %>%
+  # Drop the unnamed first column (likely index) and 'Group'
+  select(-1, -Group) %>%
+
+  # Create harmonized subject_id and redcap_event_name
+  mutate(
+    subject_id = str_replace(subject, "MS(\\d)$", "MS0\\1"),
+    redcap_event_name = case_when(
+      visit == "0" ~ "Baseline - Visit 1",
+      str_to_upper(visit) == "VISIT 2" ~ "6 Month Followup - Visit 2",
+      TRUE ~ visit
+    )
+  ) %>%
+
+  # Reorder to place identifiers at the front
+  relocate(subject_id, redcap_event_name) %>%
+
+  # Remove intermediate subject and visit columns used for transformation
+  select(-subject, -visit)
+
+# Save the cleaned version
+write_csv(ct_data, ct_cleaned_path)
 ```
 
-#### Treatments
+#### Merge CT Data with REDCap Cleaned Data
 
-```{sql}
-CREATE TABLE treatments (
-    corti1 INTEGER,
-    corti1_potency INTEGER,
-    corti2 INTEGER,
-    corti2_potency INTEGER,
-    corti3 INTEGER,
-    corti3_potency INTEGER,
-    calci1 INTEGER,
-    cakci1_name VARCHAR(50),
-    calci2 INTEGER,
-    cakci2_name VARCHAR(50),
-    calci3 INTEGER,
-    calci3_potency VARCHAR(50),
-    st INTEGER,
-    st_add INTEGER,
-    
-    FOREIGN KEY (visit_id) REFERENCES visits(visit_id)
-);
+We now merge the cleaned CT data into the REDCap-cleaned dataset. To ensure accurate row-level integration, we perform the join using both `subject_id` and `redcap_event_name`. We also explicitly define which CT variables to include in the merge, allowing us to control exactly which cognitive measures are added to the dataset. Any CT data that does not have a match in REDCap (e.g., participants not yet uploaded) will simply appear as `NA`, preserving the structure of the REDCap dataset.
+
+```{r}
+# Load the cleaned REDCap dataset
+redcap_clean <- read_csv(redcap_cleaned_path)
+
+# Specify the exact CT columns we want to retain
+ct_vars_to_merge <- c(
+  "GNG_RT_GOS", "GNG_SD_GOS", "GNG_PI_ALL", "GNG_AG_PR",
+  "CPT_OM_ALL", "CPT_PRE_ALL", "CPT_CM_ALL", "CPT_MRT_ALL", "CPT_SD_ALL",
+  "STR_RTCONGR", "STR_SDCONGR", "STR_PM_ALL", "STR_RT_EFF",
+  "TD_ERR", "MCVT_OM", "MCVT_COM", "COMP_PREM", "COMP_MRT", "COMP_CV"
+)
+
+# Perform a safe left join by subject and visit
+ct_merged <- redcap_clean %>%
+  left_join(
+    ct_data %>% select(subject_id, redcap_event_name, all_of(ct_vars_to_merge)),
+    by = c("subject_id", "redcap_event_name")
+  )
+
+# Save the final merged dataset that includes CT data
+write_csv(ct_merged, output_path)
 ```
 
-OR
+### Metadata (combined) Header Dictionary
 
-```{sql}
+To ensure the cognitive testing (CT) variables are represented consistently in the study’s database schema, we integrate their metadata into the main REDCap header dictionary. This unified dictionary allows for a single source of truth when mapping coded column names to human-readable labels during database generation or documentation.
 
-CREATE TABLE treatments (
-    treatment_id INT PRIMARY KEY AUTO_INCREMENT,
-    treatment_type VARCHAR(20), -- 'corticosteroid', 'calcineurin'
-    treatment_number INTEGER NOT NULL, -- 1, 2, 3 for multiple treatments
-    strength_class INTEGER,
-    treatment_name VARCHAR (20),
-    
-    FOREIGN KEY (visit_id) REFERENCES visit(visit_id)
-);
+```{r}
+# Define file paths
+redcap_headers_path <- "data/metadata/redcap_cleaned_headers.csv"
+ct_metadata_path <- "data/metadata/cognitive_task_metadata.csv"
+output_path <- "data/metadata/ct_redcap_headers.csv"
+
+# Read REDCap header dictionary
+redcap_headers <- read_csv(redcap_headers_path, show_col_types = FALSE)
+
+# Read CT metadata
+ct_metadata <- read_csv(ct_metadata_path, show_col_types = FALSE)
+
+# Rename columns to match schema
+ct_headers <- ct_metadata %>%
+  select(variable_name, description) %>%          # Drop 'indicator_of'
+  rename(
+    coded_header = variable_name,
+    label_header = description
+  )
+
+# Combine redcap and CT headers
+combined_headers <- bind_rows(redcap_headers, ct_headers)
+
+# Save result
+write_csv(combined_headers, output_path)
 ```
 
-#### Measurement
+## Schema Design
 
-```{sql}
-CREATE TABLE assessment (
-    assessment_id INT PRIMARY KEY AUTO_INCREMENT,
-    weight DECIMAL(6,2),
-    height DECIMAL(6,2),
-    sbfa_twel INTEGER, 
-    sbfa_twel_side INTEGER,
-    sbfa_arm_flux1 DECIMAL(8,3),
-    sbfa_arm_flux2 DECIMAL(8,3),
-    sbfa_arm_flux3 DECIMAL(8,3),
-    sbfa_arm_cur INTEGER,
-    sbfa_temp DECIMAL(5,2),
-    sbfa_humidity DECIMAL(5,2),
-    sbfa_ph INTEGER,
-    sbfa_ph_side INTEGER,
-    sbfa_ph1 DECIMAL(4,2),
-    sbfa_ph2 DECIMAL(4,2),
-    sbfa_ph3 DECIMAL(4,2),
-    easi_totscore DECIMAL(5,2),
-    vas_totscore INTEGER,
-    skinqol_used INTEGER,
-    skinqol_score INTEGER,
-    bmsi_adverse_score DECIMAL(5,2),
-    bmsi_capable_score INTEGER,
-    bmsi_response_score DECIMAL(5,2),
-    btms_bm_score INTEGER,
-    btms_bthreat_score INTEGER,
-    btms_totscore INTEGER,
-    sdc_srbd_scale DECIMAL(5,3),
-    sdc_sleepiness_scale DECIMAL(4,3),
-    sdc_restless_leg_scale DECIMAL(4,3),
-    sdc_mtainsc INTEGER,
-    sdc_mtainsc_tscore INTEGER,
-    sdsc_breath INTEGER,
-    sdc_breath_tscore INTEGER,
-    sdsc_arousal INTEGER,
-    sdc_arousal_tscore INTEGER,
-    sdsc_transit INTEGER,
-    sdc_transit_tscore INTEGER,
-    sdsc_somnol INTEGER,
-    sdc_somnol_tscore INTEGER,
-    sdsc_hyper INTEGER,
-    sdc_hyper_tscore INTEGER,
-    sdsc_tscore INTEGER,
-    total_t_score INTEGER,
-    ehi_tscore DECIMAL(6,2),
-    wasi_fsiq4 INTEGER,
-    gonogo_resp INTEGER,
-    simon_presp INTEGER,
-    cpt_prerrors INTEGER,
-    mack_mskips INTEGER,
-    mack_iskips INTEGER,
-    
-    FOREIGN KEY (visit_participant_id) REFERENCES visits(visit_id)
-);
-```
+### `Participant`
 
-## Notes from the meeting with michelle
+this table and anything linked to this table is related to the participant so it is only measured once in the lifecycle of the study (hence why none of this is linked to visit)
 
--   no hierarchy on ethnicity when collected
+**Primary Key**: `participant_id (int, auto increment)`\
 
--   name of the table should be the same as the primary key
+**Fields**:
 
--   if there's no dates, talk about that in the report why thats not good
+-   `subject_id` — MSXX (from subject_id, always unique)
 
--   talk about time constraints that we couldnt create a proper NA
+-   `age` — subject age (from reg_age)
 
--   flag for test or flag for a type
+-   `group`, `sex` — subject group and sex (from reg_grp and dem_sex)
 
--   consistent naming
+-   `is_active` — boolean (could reflect dropout or eligibility)
 
--   record type flag
+**Relationships**:
+
+-   **1:N** to `Visit`
+
+-   **1:N** to `Participant_Ethnicity`, `Participant_Comorbidity`, `Participant_Medication`, `Participant_Diagnosis`
+
+### `Visit`
+
+**Primary Key**: `visit_id (int, auto increment)`\
+
+**Foreign Key**: `participant_id` → `Participant`
+
+**Fields**:
+
+-   `type` — from redcap_event_name
+
+-   `height`, `weight` — hw_hght and hw_wght
+
+**Relationships**:
+
+-   **1:N** to `Visit_Measurement`
+
+### `Visit_Measurement`
+
+**Primary Key**: `visit_measurement_id (int, auto increment)`\
+
+**Foreign Keys**: `visit_id`, `measurement_id`
+
+**Fields**:
+
+-   `value_numeric` — float values (e.g. score, height, latency)
+
+-   `value_varchar` — for text-type entries
+
+\*\*these are the actual data values present in the clean data csv
+
+**Relationships**:
+
+-   Many-to-1 to `Measurement`
+
+**Note**: `value_numeric` vs `value_varchar` is used — only one will be complete for each measurement, and it is driven by driven by `Measurement.data_type`.
+
+### `Measurement`
+
+**Primary Key**: `measurement_id (int, auto increment)`\
+
+**Foreign Key**: `assessment_id` → `Assessment`
+
+**Fields**:
+
+-   `variable_name` — the thing that is being measured (ex. t-score, total score, ph 1, etc.)
+
+-   `description` — short description of that if necessary
+
+-   `indicator_of` — mostly for cognitive testing, shows what this value means / indicates
+
+-   `data_type` — the expected data type for this measurement/value (eg. int, decimal, varchar)
+
+-   `unit` — the units of that measurement if necessary
+
+**Relationships**:
+
+-   **1:N** from `Visit_Measurement`
+
+-   **1:N** from `Assessment`
+
+### `Assessment`
+
+**Primary Key**: `assessment_id (int, auto increment)`\
+
+**Foreign Key**: `domain_id`
+
+**Fields**:
+
+-   `name` — name of the test / assessment being done (ex. EASI, WASI, POEM, PH MEASUREMENT, etc. )
+
+-   `description` — a description of the assessment
+
+**Relationships**:
+
+-   Many-to-1 to `Domain`
+
+### `Domain`
+
+**Primary Key**: `domain_id (int, auto increment)`
+
+**Fields**:
+
+-   `name`— which overall category (cognitive, sleep, skin, etc.)
+
+### `Ethnicity_Group`
+
+**Primary Key**: `ethnicity_group_id (int, auto increment)`
+
+**Fields**:
+
+-   `name` — from dem_eth (e.g. "White", "Asian", "Black", "Mixed")
+
+### `Ethnicity_Subtype`
+
+**Primary Key**: `ethnicity_subtype_id (int, auto increment)`\
+
+**Foreign Key**: `ethnicity_group_id` → `Ethnicity_Group`
+
+**Fields**:
+
+-   `subtype_name` — e.g. "Chinese", "Pakistani", "Caribbean"
+
+**Relationships**:
+
+-   **1:N** from `Ethnicity_Group` (one group has many subtypes)
+
+-   **1:N** to `Participant_Ethnicity`
+
+### `Participant_Ethnicity`
+
+**Primary Key**: `participant_ethnicity_id (int, auto increment)`\
+
+**Foreign Keys**:
+
+-   `participant_id` → `Participant`
+
+-   `ethnicity_subtype_id` → `Ethnicity_Subtype`
+
+**Fields**:
+
+-   *(none beyond foreign keys — pure join table)*
+
+**Relationships**:
+
+-   **Many-to-1** from `Participant` (1 participant → multiple ethnicities)
+
+-   **Many-to-1** from `Ethnicity_Subtype`
+
+### `Comorbidity`
+
+**Primary Key**: `comorbidity_id (int, auto increment)`
+
+**Fields**:
+
+-   `name` — full comorbidity description (e.g. “Asthma”, “Depression”)
+
+### `Participant_Comorbidity`
+
+**Primary Key**: `participant_comorbidity_id (int, auto increment)`\
+
+**Foreign Keys**:
+
+-   `participant_id` → `Participant`
+
+-   `comorbidity_id` → `Comorbidity`
+
+**Fields**:
+
+-   `has_comorbidity` — whether or not a participant has the specific comorbidity (is this needed though?
+
+**Relationships**:
+
+-   **Many-to-1** to both `Participant` and `Comorbidity`
+
+### `Medication`
+
+**Primary Key**: `medication_id (int, auto increment)`
+
+**Fields**:
+
+-   `type` — drug class/category (e.g. “Coricosteroid”, “Calcineurin inhibitor”, "Systemic Therapy")
+
+-   `name` — name of drug (only present for C inhibitors and systemic therapy
+
+-   `potency` — only for systemic therapy and corticosteroid eg. ("ultra-potent", "moderate", "potent")
+
+-   `units` — only for Systemic therapy e.g. “Low”, “High”, or specific mg/mL
+
+-   `frequency` — only for systemic therapy
+
+### `Participant_Medication`
+
+**Primary Key**: `participant_medication_id (int, auto increment)`\
+
+**Foreign Keys**:
+
+-   `participant_id` → `Participant`
+
+-   `medication_id` → `Medication`
+
+**Fields**:
+
+-   `sequence` — if the participant is taking multiple of a certain type of medication, this shows which one (based off how its entered...)
+
+**Relationships**:
+
+-   **Many-to-1** to `Participant` and `Medication`
+
+### `Diagnostic_Criteria`
+
+this is for the 6 UK eczema diagnostic criteria
+
+**Primary Key**: `diagnostic_criteria_id (int, auto increment)`
+
+**Fields**:
+
+-   `criteria` — e.g. “An itchy skin condition in the last year", "Visual flexural dermatitis", etc.
+
+### `Participant_Diagnosic_Criteria`
+
+**Primary Key**: `participant_diagnostic_criteria_id (int, auto increment)`\
+
+**Foreign Keys**:
+
+-   `participant_id` → `Participant`
+
+-   `diagnostic_criteria_id` → `Diagnostic_Criteria`
+
+**Fields**:
+
+-   `met` — if a participant has met a diagnostic criteria
+
+**Relationships**:
+
+-   **Many-to-1** to both `Participant` and `Diagnostic_Criteria`
+
+if there's no dates, talk about that in the report why thats not good

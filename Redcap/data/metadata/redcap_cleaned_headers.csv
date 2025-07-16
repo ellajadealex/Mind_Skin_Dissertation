@@ -1,4 +1,4 @@
-raw_header,label_header
+coded_header,label_header
 subject_id,Mind & Skin ID
 redcap_event_name,Event Name
 reg_age,_age
@@ -62,6 +62,7 @@ sbfa_ph1,PH measurment 1
 sbfa_ph2,PH measurment 2
 sbfa_ph3,PH measurment 3
 se_easi,Total score
+poem_score,Total score
 bmsi_adverse_score,"Body is an Adversary score:(mean of items : 1, 2, 3, 4)"
 bmsi_capable_score,"Body is an Capable score:(mean of items : 5, 6)"
 bmsi_response_score,"Body is a Responsive score:(mean of items :7, 8)"
@@ -71,7 +72,6 @@ btms_tscore,Total score
 vas_score,Total score
 skinqol_used,Questionnaire used
 skinqol_score,Total score
-patientreported_quality_of_life_measures_complete,Complete?
 sdc_srbd_scale,1.	SRBD scale (including snoring and sleepiness subscales)
 sdc_sleepiness_scale,2.	Sleepiness subscale
 sdc_restless_leg_scale,3.	Periodic Leg Movement/Restless Legs Syndrome scale

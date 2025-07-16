@@ -6,7 +6,7 @@ of the study data capture.
 
 ## Files
 
-### `redcap_raw_export_v40_2025-01-22.csv`
+### `redcap_coded_export_v40_2025-01-22.csv`
 - Machine-readable REDCap export
 - Contains coded values (e.g., 0/1) and variable names in snake_case
 - Used to provide column headers for cleaned dataset

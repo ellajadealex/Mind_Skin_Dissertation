@@ -1,4 +1,4 @@
-raw_header,label_header
+coded_header,label_header
 subject_id,Mind & Skin ID
 redcap_event_name,Event Name
 visit_complete,Complete?

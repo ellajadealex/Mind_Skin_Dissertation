@@ -1,0 +1,11 @@
+variable_name,description,indicator_of
+GNG_PI_ALL,Probability of inhibition (All) from Go/No-go task,motor inhibition
+CPT_OM_ALL,Percentage of omission error from Continuous Performance task,Attention
+CPT_CM_ALL,Percentage of omission error from Continuous Performance task,Impulsivity
+STR_RT_EFF,Simon effect which is Reaction time to incongruent signal minus reaction time to congruent signals in milliseconds from Simon/Spatial stroop task,ability to separate interfering information
+TD_ERR,Percentage of total errors in time discrimination task,time perception
+MCVT_OM, Number of omission errors from Mackworth clock vigilance task,Attention
+MCVT_COM,Number of comission errors from Mackworth clock vigilance task,Impulsivity
+COMP_PREM,Composite number of premature responses,Impulsivity
+COMP_MRT,Composite mean reaction time in milliseconds,
+COMP_CV,"Composite coefficient of variance = a measure of relative variability, equal to the ratio of SD to mean",Attention => higher value indicates reduced attention
