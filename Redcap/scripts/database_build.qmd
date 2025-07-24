@@ -4,335 +4,1026 @@ format: html
 editor: visual
 ---
 
-# Schema
+# SQL Scripts
 
-## Measurement System
+well... i deleted the database... so here we go again.
 
-### Tables:
-
--   **`Domain`**\
-
-    Broad conceptual category for assessments (e.g., "Skin", "Sleep", "Cognition", "QOL").\
-
-    ▸ Helps organize assessments and group analyses.
-
--   **`Assessment`**\
-
-    Represents an instrument/questionnaire used to measure a domain (e.g., “POEM”, “TEWL”, “BSMI”).\
-
-    ▸ Linked to one domain; stores instrument-level metadata like name and description.
-
--   **`Measurement`**\
-
-    Represents each variable/item from a given assessment.\
-
-    ▸ Examples: `poem_score`, `ph_value`, `bmsi_adverse_score`\
-
-    ▸ Includes expected data type, label, and unit (if applicable).\
-
-    ▸ **Why separate from Visit_Measurement?** This table is static metadata — not data values.
-
--   **`Visit_Measurement`**\
-
-    Stores *actual data collected* during a visit for a specific measurement.\
-
-    ▸ Can contain a `value_numeric` (e.g., EASI score = 8.2) or a `value_text` (e.g., “Moderate”).\
-
-    ▸ `is_complete` indicates if the full instrument was completed at that visit.\
-
-    ▸ **CHECK constraint** ensures only one of `value_numeric` or `value_VARCHAR` is filled.\
-
-    ▸ Foreign keys link it to both the `visit` and the `measurement`.
-
-### Relationships:
-
--   `Domain` → `Assessment` (1:M)
-
--   `Assessment` → `Measurement` (1:M)
-
--   `Measurement` → `Visit_Measurement` (1:M)
-
--   `Visit` → `Visit_Measurement` (1:M)
-
-### Script:
+## Database Creation:
 
 ```{sql}
-CREATE TABLE Domain (
-    domain_id INT AUTO_INCREMENT PRIMARY KEY,
-    domain_name VARCHAR NOT NULL UNIQUE -- e.g., 'Skin', 'Cognitive', 'Sleep', 'QoL'
+-- Full SQL build script for Mind & Skin database
+
+CREATE DATABASE IF NOT EXISTS mind_and_skin;
+USE mind_and_skin;
+
+-- === TABLE CREATION ===
+
+CREATE TABLE `Participant`(
+    `participant_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `subject_id` VARCHAR(4) NOT NULL,
+    `age` DOUBLE NULL,
+    `group` VARCHAR(50) NULL,
+    `sex` VARCHAR(20) NULL,
+    `is_active` BOOLEAN NOT NULL,
+    CONSTRAINT unique_subject_id UNIQUE (subject_id)
 );
 
-CREATE TABLE Assessment (
-    assessment_id INT AUTO_INCREMENT PRIMARY KEY,
-    domain_id INT NOT NULL REFERENCES Domain(domain_id),
-    name VARCHAR NOT NULL,            -- e.g., 'EASI', 'BMSI'
-    description VARCHAR
+CREATE TABLE `Visit`(
+    `visit_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `participant_id` INT NOT NULL,
+    `type` VARCHAR(60) NULL,
+    `height` DOUBLE NULL,
+    `weight` DOUBLE NULL,
+    CONSTRAINT unique_participant_visit_type UNIQUE (participant_id, type)
 );
 
-CREATE TABLE Measurement (
-    measurement_id INT AUTO_INCREMENT PRIMARY KEY,
-    assessment_id INT NOT NULL REFERENCES Assessment(assessment_id),
-    variable_name VARCHAR NOT NULL,   -- e.g., 'easi_score', 'bmsi_total_score'
-    variable_label VARCHAR,           -- e.g., 'Total EASI Score'
-    data_type VARCHAR NOT NULL CHECK (data_type IN ('decimal', 'int', 'VARCHAR', 'boolean')),
-    unit VARCHAR,
-    UNIQUE(assessment_id, variable_name)
+CREATE TABLE `Domain`(
+    `domain_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(100) NOT NULL,
+    CONSTRAINT unique_domain_name UNIQUE (name)
 );
 
-CREATE TABLE Visit_Measurement (
-    visit_measurement_id INT AUTO_INCREMENT PRIMARY KEY,
-    visit_id INT NOT NULL REFERENCES Visit(visit_id),
-    measurement_id INT NOT NULL REFERENCES Measurement(measurement_id),
-    value_numeric DECIMAL,
-    value_VARCHAR VARCHAR,
-    is_complete BOOLEAN DEFAULT FALSE,
-    CHECK (
-        value_numeric IS NOT NULL OR value_VARCHAR IS NOT NULL
-    )
+CREATE TABLE `Assessment`(
+    `assessment_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `domain_id` INT NOT NULL,
+    `name` VARCHAR(100) NOT NULL,
+    `coding` VARCHAR(10) NOT NULL,
+    CONSTRAINT unique_assessment_coding UNIQUE (coding)
+);
+
+CREATE TABLE `Measurement`(
+    `measurement_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `assessment_id` INT NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `description` VARCHAR(255) NULL,
+    `unit` VARCHAR(35) NULL,
+    `coding` VARCHAR(40),
+    CONSTRAINT unique_measurement_coding UNIQUE (coding)
+);
+
+CREATE TABLE `Visit_Measurement`(
+    `visit_measurement_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `visit_id` INT NOT NULL,
+    `measurement_id` INT NOT NULL,
+    `value` VARCHAR(50) NULL,
+    CONSTRAINT unique_visit_measurement UNIQUE (visit_id, measurement_id)
+);
+
+CREATE TABLE `Diagnostic_Criteria`(
+    `diagnostic_criteria_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `criteria` VARCHAR(150) NOT NULL,
+    `notes` VARCHAR(255) NULL,
+    `coding` VARCHAR(40)
+);
+
+CREATE TABLE `Participant_Diagnostic_Criteria`(
+    `participant_diagnostic_criteria_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `participant_id` INT NOT NULL,
+    `diagnostic_criteria_id` INT NOT NULL,
+    `met` VARCHAR(10 NULL,
+    CONSTRAINT unique_participant_diagnostic UNIQUE (participant_id, diagnostic_criteria_id)
+);
+
+CREATE TABLE `Ethnicity_Group`(
+    `ethnicity_group_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `group_name` VARCHAR(60) NOT NULL,
+    CONSTRAINT unique_ethnicity_group_name UNIQUE (group_name)
+);
+
+CREATE TABLE `Ethnicity_Subtype`(
+    `ethnicity_subtype_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `ethnicity_group_id` INT NOT NULL,
+    `subtype_name` VARCHAR(100) NOT NULL,
+    CONSTRAINT unique_ethnicity_subtype_name_per_group UNIQUE (ethnicity_group_id, subtype_name)
+);
+
+CREATE TABLE `Participant_Ethnicity`(
+    `participant_ethnicity_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `participant_id` INT NOT NULL,
+    `ethnicity_subtype_id` INT NOT NULL,
+    CONSTRAINT unique_participant_ethnicity UNIQUE (participant_id, ethnicity_subtype_id)
+);
+
+CREATE TABLE `Comorbidity`(
+    `comorbidity_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(50) NOT NULL,
+    `coding` VARCHAR(40),
+    CONSTRAINT unique_comorbidity_name UNIQUE (name)
+);
+
+CREATE TABLE `Participant_Comorbidity`(
+    `participant_comorbidity_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `participant_id` INT NOT NULL,
+    `comorbidity_id` INT NOT NULL,
+    `has_comorbidity` VARCHAR(10) NULL,
+    CONSTRAINT unique_participant_comorbidity UNIQUE (participant_id, comorbidity_id)
+);
+
+CREATE TABLE `Medication_Category`(
+    `medication_category_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `category` VARCHAR(40) NOT NULL,
+    CONSTRAINT unique_medication_category UNIQUE (category)
+);
+
+CREATE TABLE `Participant_Medication`(
+    `participant_medication_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `participant_id` INT NOT NULL,
+    `medication_category_id` INT DEFAULT NULL,
+    `medication_name` VARCHAR(255),
+    `potency` VARCHAR(50),
+    `units` VARCHAR(50),
+    `frequency` VARCHAR(50),
+    `sequence` INT NOT NULL,
+    CONSTRAINT unique_participant_med_cat_seq UNIQUE (participant_id, medication_category_id, sequence)
+);
+
+-- === FOREIGN KEYS ===
+
+ALTER TABLE Visit ADD CONSTRAINT visit_participant_id_foreign FOREIGN KEY (participant_id) REFERENCES Participant(participant_id);
+ALTER TABLE Assessment ADD CONSTRAINT assessment_domain_id_foreign FOREIGN KEY (domain_id) REFERENCES Domain(domain_id);
+ALTER TABLE Measurement ADD CONSTRAINT measurement_assessment_id_foreign FOREIGN KEY (assessment_id) REFERENCES Assessment(assessment_id);
+ALTER TABLE Visit_Measurement ADD CONSTRAINT visit_measurement_visit_id_foreign FOREIGN KEY (visit_id) REFERENCES Visit(visit_id);
+ALTER TABLE Visit_Measurement ADD CONSTRAINT visit_measurement_measurement_id_foreign FOREIGN KEY (measurement_id) REFERENCES Measurement(measurement_id);
+ALTER TABLE Participant_Diagnostic_Criteria ADD CONSTRAINT participant_diagnostic_criteria_participant_id_foreign FOREIGN KEY (participant_id) REFERENCES Participant(participant_id);
+ALTER TABLE Participant_Diagnostic_Criteria ADD CONSTRAINT participant_diagnostic_criteria_diagnostic_criteria_id_foreign FOREIGN KEY (diagnostic_criteria_id) REFERENCES Diagnostic_Criteria(diagnostic_criteria_id);
+ALTER TABLE Ethnicity_Subtype ADD CONSTRAINT ethnicity_subtype_ethnicity_group_id_foreign FOREIGN KEY (ethnicity_group_id) REFERENCES Ethnicity_Group(ethnicity_group_id);
+ALTER TABLE Participant_Ethnicity ADD CONSTRAINT participant_ethnicity_ethnicity_subtype_id_foreign FOREIGN KEY (ethnicity_subtype_id) REFERENCES Ethnicity_Subtype(ethnicity_subtype_id);
+ALTER TABLE Participant_Ethnicity ADD CONSTRAINT participant_ethnicity_participant_id_foreign FOREIGN KEY (participant_id) REFERENCES Participant(participant_id);
+ALTER TABLE Participant_Comorbidity ADD CONSTRAINT participant_comorbidity_comorbidity_id_foreign FOREIGN KEY (comorbidity_id) REFERENCES Comorbidity(comorbidity_id);
+ALTER TABLE Participant_Comorbidity ADD CONSTRAINT participant_comorbidity_participant_id_foreign FOREIGN KEY (participant_id) REFERENCES Participant(participant_id);
+ALTER TABLE Participant_Medication ADD CONSTRAINT fk_pm_medication_category FOREIGN KEY (medication_category_id) REFERENCES Medication_Category(medication_category_id);
+ALTER TABLE Participant_Medication ADD CONSTRAINT fk_pm_participant FOREIGN KEY (participant_id) REFERENCES Participant(participant_id);
+```
+
+## Loading Data In
+
+### Participant
+
+Load into DBeaver directly from `data/collated/Participant.csv`
+
+-   Right click Participant table
+
+-   "Import Data"
+
+-   Select CSV –\> "Next"
+
+-   Select Participant.csv –\> "Next"
+
+-   "Next"
+
+-   to check if the values align, press "Configure" and if the Mapping column says "Existing", you are good to go –\> "Ok" –\> "Next"
+
+-   Ensure these data load settings are selected
+
+![](images/Screenshot 2025-07-20 at 14.43.59.png){width="1000"}
+
+-   "Proceed"
+
+### Visit
+
+Now, this table gets a bit more complex because we need to integrate in the participant_id that is auto-incremented from the participant table. For this we will be using a "staging table", then inserting the data from the staging table into the actual table, joining on the subject id being the same.
+
+```{sql}
+-- Step 1: Create a temporary staging table to load visit data from CSV
+-- This table includes subject_id (used to match participants) and raw visit data
+CREATE TABLE Visit_Staging (
+    subject_id VARCHAR(20),
+    type VARCHAR(255),
+    height DOUBLE,
+    weight DOUBLE
 );
 ```
 
-## Participant & Demographics
+Make sure to refresh the tables, right clicking on the `mind_and_skin`database, and clicking "Refresh".
 
-### Tables:
-
--   **`Visit`**\
-
-    Stores each visit (e.g., baseline, post-treatment) per participant.\
-
-    ▸ Additional visit-level data like height/weight can be stored here.
-
--   **`Participant`**\
-
-    Stores each subject in the study.\
-
-    ▸ Includes the external `subject_id` (e.g., MS01), `age`, `group_code`, and `sex_code`.\
-
-    ▸ Uses coded values for group/sex for normalization.
-
--   **`Sex_Code`**\
-
-    Lookup table for sex at birth (e.g., Male, Female, Undifferentiated)
-
--   **`Group_Code`**\
-
-    Lookup table for study group (e.g., Topical therapy, Immuno-modulatory therapy, Healthy control).
-
-### Relationships:
-
--   `Participant` → `Visit` (1:M)
-
--   `Visit` → `Visit_Measurement` (1:M)
-
-**Design Notes:**
-
--   One visit may generate multiple assessments (one-to-many).
-
--   Separation allows for longitudinal tracking and repeated measures.
-
--   Use lookup tables for query efficiency, standardized controlled vocabularies, and making system resilient to typos
-
-### Script:
+Load into the `Visit_Staging` table directly from `data/collated/Visit.csv`
 
 ```{sql}
-CREATE TABLE Sex_Code (
-    sex_code INT PRIMARY KEY,
-    sex_label VARCHAR NOT NULL UNIQUE -- e.g., 'Male', 'Female', 'Undifferentiated'
-);
 
-CREATE TABLE Group_Code (
-    group_code INT PRIMARY KEY,
-    group_label VARCHAR NOT NULL UNIQUE -- e.g., 'Topical therapy', 'Immuno-modulatory therapy', 'Healthy control'
-);
+-- Step 2: Insert visit records into the normalized Visit table
+-- We join Visit_Staging to Participant to convert subject_id into participant_id
+INSERT INTO Visit (participant_id, type, height, weight)
+SELECT p.participant_id, vs.type, vs.height, vs.weight
+FROM Visit_Staging vs
+JOIN Participant p ON vs.subject_id = p.subject_id;
 
-CREATE TABLE Participant (
-    participant_id INT AUTO_INCREMENT PRIMARY KEY,
-    subject_id VARCHAR(4) NOT NULL UNIQUE, -- e.g., 'MS01'
-    age DECIMAL,
-    group_code INT REFERENCES Group_Code(group_code),
-    sex_code INT REFERENCES Sex_Code(sex_code)
-);
+-- Step 3: Preview inserted rows in the Visit table
+SELECT * FROM Visit LIMIT 10;
 
-CREATE TABLE Visit (
-    visit_id INT AUTO_INCREMENT PRIMARY KEY,
-    participant_id INT NOT NULL REFERENCES Participant(participant_id),
-    number INT NOT NULL,           -- visit number (1, 2, etc.)
-    height DECIMAL,
-    weight DECIMAL,
-    UNIQUE(participant_id, number)
-);
-```
+-- Step 4: (Optional check) Preview contents of staging table
+SELECT * FROM Visit_Staging LIMIT 10;
 
-## Ethnicity System
+-- Step 5: Clean up schema — drop subject_id column that was mistakenly added to Visit
+ALTER TABLE Visit DROP COLUMN subject_id;
 
-Captures participants' self-identified ethnicity and sub-ethnicity per UK standards.
-
-### Tables:
-
--   **`Ethnicity_Group`**\
-
-    High-level category (e.g., "White", "Asian", "Black").
-
--   **`Ethnicity_Subtype`**\
-
-    Specific subtypes within a group (e.g., "Indian", "Pakistani", "Caribbean").\
-
-    ▸ Each subtype links to one group.
-
--   **`Participant_Ethnicity`**\
-
-    One-to-many bridge table between `Participant` and `Ethnicity_Subtype`.\
-
-    ▸ A participant can report multiple ethnicities (e.g., mixed heritage).\
-
-    ▸ Ensures full normalization and flexibility.
-
-```{sql}
-CREATE TABLE Ethnicity_Group (
-    ethnicity_group_id INT PRIMARY KEY,
-    category_name VARCHAR NOT NULL UNIQUE -- e.g., 'Asian', 'White'
-);
-
-CREATE TABLE Ethnicity_Subtype (
-    ethnicity_subtype_id INT AUTO_INCREMENT PRIMARY KEY,
-    ethnicity_group_id INT NOT NULL REFERENCES Ethnicity_Group(ethnicity_group_id),
-    subtype_name VARCHAR NOT NULL -- e.g., 'Chinese', 'Pakistani'
-);
-
-CREATE TABLE Participant_Ethnicity (
-    participant_ethnicity_id INT AUTO_INCREMENT PRIMARY KEY,
-    participant_id INT NOT NULL REFERENCES Participant(participant_id),
-    ethnicity_subtype_id INT NOT NULL REFERENCES Ethnicity_Subtype(ethnicity_subtype_id),
-);
-```
-
-## Medical History & Diagnostic Criteria
-
-Tracks participant-reported or clinician-diagnosed conditions.
-
-### Tables:
-
--   **`Condition`**\
-
-    Lookup table for conditions (e.g., "Asthma", "Sleep disturbance").
-
--   **`Participant_Condition`**\
-
-    Indicates whether a participant has each condition.\
-
-    ▸ `has_condition` boolean allows for explicit no/yes recording.
-
--   **`Diagnostic_Criteria`**\
-
-    Stores each diagnostic rule/criterion.\
-
-    ▸ Examples: “Personal history of flexural involvement”, “Visible flexural eczema”.
-
--   **`Participant_Diagnostic`**\
-
-    Records whether a participant meets each criterion.\
-
-    ▸ Enables robust criteria-based cohort definitions.
-
-```{sql}
-CREATE TABLE Condition (
-    condition_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR NOT NULL UNIQUE -- e.g., 'asthma', 'contact_allergy', 'sleep_disturbance'
-);
-
-CREATE TABLE Participant_Condition (
-    participant_condition_id INT AUTO_INCREMENT PRIMARY KEY,
-    participant_id INT NOT NULL REFERENCES Participant(participant_id),
-    condition_id INT NOT NULL REFERENCES Condition(condition_id),
-    has_condition BOOLEAN DEFAULT FALSE,
-);
-
-CREATE TABLE Diagnostic_Criteria (
-    diagnostic_criteria_id INT AUTO_INCREMENT PRIMARY KEY,
-    description VARCHAR NOT NULL -- e.g., 'Visible flexural eczema', 'Personal history of flexural involvement'
-);
-
-CREATE TABLE Participant_Diagnostic (
-    participant_diagnostic_id INT AUTO_INCREMENT PRIMARY KEY,
-    participant_id INT NOT NULL REFERENCES Participant(participant_id),
-    diagnostic_criteria_id INT NOT NULL REFERENCES Diagnostic_Criteria(diagnostic_criteria_id),
-    met BOOLEAN DEFAULT FALSE,
-);
-```
-
-## Medication Tracking
-
-Captures medication exposure history and treatment regimens.
-
-### Tables:
-
--   **`Medication`**\
-
-    Stores metadata on each treatment type:\
-
-    ▸ `type`: Corticosteroid, Calcineurin inhibitor, Systemic therapy\
-
-    ▸ `potency`: Mild, Potent, Ultra-potent
-
--   **`Participant_Medication`**\
-
-    Bridge table for participant-medication history.\
-
-    ▸ Includes `sequence` to model order of exposure (useful for temporal analysis).
-
-```{sql}
-CREATE TABLE Medication (
-    medication_id INT AUTO_INCREMENT PRIMARY KEY,
-    type VARCHAR NOT NULL, -- e.g., 'Corticosteroid', 'Systemic therapy', 'Calcineurin inhibitor'
-    name VARCHAR,          -- e.g., 'Tacrolimus', 'Methotrexate'
-    potency VARCHAR        -- e.g., 'Mild', 'Potent', 'Ultra-potent'
-);
-
-CREATE TABLE Participant_Medication (
-    participant_medication_id INT AUTO_INCREMENT PRIMARY KEY,
-    participant_id INT NOT NULL REFERENCES Participant(participant_id),
-    medication_id INT NOT NULL REFERENCES Medication(medication_id),
-    sequence INT,       -- e.g., '2' for 2nd corticosteroid
-);
-```
-
-# things to note
-
-```{sql}
-CASE
-  WHEN ehi_tscore < -40 THEN 'left'
-  WHEN ehi_tscore BETWEEN -40 AND 40 THEN 'ambidextrous'
-  WHEN ehi_tscore > 40 THEN 'right'
-  ELSE 'unknown'
-END AS handedness
+-- Step 6: Drop the temporary staging table to keep schema clean
+DROP TABLE Visit_Staging;
 
 ```
 
-Indexes??
+### Domain
+
+Load into the `Domain` table directly from `data/collated/Visit.csv`
+
+### Assessment
 
 ```{sql}
--- Foreign keys
-Visit_Assessment(visit_id)
-Visit_Assessment(assessment_id)
-Assessment(domain_id)
-Visit(participant_id)
-Participant_Ethnicity(participant_id)
-Participant_Ethnicity(ethnicity_subtype_id)
-Ethnicity_Subtype(ethnicity_category_id)
-Participant_Medication(participant_id)
-Participant_Medication(medication_id)
-
--- Optional performance indexes (if queries slow down)
-Visit_Assessment(value_numeric)
-Visit_Assessment(value_text)
+-- Step 1: Create a temporary staging table to load assessment metadata from CSV
+-- This table includes domain_name (used to match the domain) and assessment information
+CREATE TABLE Assessment_Staging (
+    name VARCHAR(255),
+    coding VARCHAR(255),
+    domain_name VARCHAR(255)
+);
 ```
 
-**If `value_numeric` and `value_text` will never both be used for the same record**, you could eventually add a **check constraint or view** to enforce that.
+Make sure to refresh the tables, right clicking on the `mind_and_skin`database, and clicking "Refresh".
 
-what to do for questionaire used
+Load into the `Assessment_Staging` table directly from `data/collated/Assessment_Domain.csv`
 
-questions for xin yi:
+```{sql}
+-- Step 2: Insert normalized assessment records into the Assessment table
+-- We join Assessment_Staging to Domain to convert domain_name into domain_id
+INSERT INTO Assessment (domain_id, name, coding)
+SELECT d.domain_id, s.name, s.coding
+FROM Assessment_Staging s
+JOIN Domain d ON s.domain_name = d.name;
 
--   do we need an "is_active" flag so that nothing has to be deleted – when tests are added/dropped (for now or the future)
+-- Step 3: Preview inserted rows in the Assessment table
+SELECT * FROM Assessment LIMIT 10;
 
--   can i make a combo of both sheets
+-- Step 4: (Optional check) Preview contents of staging table
+SELECT * FROM Assessment_Staging LIMIT 10;
+
+-- Step 5: Drop the temporary staging table to keep schema clean
+DROP TABLE Assessment_Staging;
+
+```
+
+### Measurement
+
+```{sql}
+-- Step 1: Create a temporary staging table to load raw measurement data from CSV
+-- This includes both measurement and assessment info so we can join on assessment_coding
+CREATE TABLE Measurement_Staging (
+    measurement_coding VARCHAR(255),
+    assessment_coding VARCHAR(255),
+    measurement_name VARCHAR(255),
+    measurement_description VARCHAR(500),
+    measurement_unit VARCHAR(100)
+);
+```
+
+Make sure to refresh the tables, right clicking on the `mind_and_skin`database, and clicking "Refresh".
+
+Load into the `Measurement_Staging` table directly from `data/collated/Assessment_Measurement.csv`
+
+```{sql}
+
+-- Step 2: Insert normalized records into Measurement table
+-- We join staging to Assessment using assessment_coding to get the corresponding assessment_id
+INSERT INTO Measurement (assessment_id, name, coding, description, unit)
+SELECT 
+    a.assessment_id,
+    ms.measurement_name,
+    ms.measurement_coding,
+    ms.measurement_description,
+    ms.measurement_unit
+FROM Measurement_Staging ms
+JOIN Assessment a ON ms.assessment_coding = a.coding;
+
+-- Step 3: Check inserted values
+SELECT * FROM Measurement LIMIT 10;
+
+-- Step 4: (Optional) Review contents of staging table
+SELECT * FROM Measurement_Staging LIMIT 20;
+
+-- Step 5: Drop the staging table to keep the schema clean
+DROP TABLE Measurement_Staging;
+
+```
+
+### Visit_Measurement
+
+```{sql}
+-- Step 1: Create a staging table for visit-level measurement data in wide format
+-- This table holds one row per subject per visit, with each measurement in its own column
+-- `subject_id` and `type` will be used to join with the Visit table to get `visit_id`
+
+CREATE TABLE Visit_Measurement_Staging_Wide (
+    subject_id VARCHAR(20),
+    type VARCHAR(255),
+    sbfa_twel_det2 VARCHAR(255),
+    sbfa_arm_flux1 VARCHAR(255),
+    sbfa_arm_flux2 VARCHAR(255),
+    sbfa_arm_flux3 VARCHAR(255),
+    sbfa_arm_cur VARCHAR(255),
+    sbfa_temp VARCHAR(255),
+    sbfa_humidity VARCHAR(255),
+    sbfa_ph_det VARCHAR(255),
+    sbfa_ph1 VARCHAR(255),
+    sbfa_ph2 VARCHAR(255),
+    sbfa_ph3 VARCHAR(255),
+    se_easi VARCHAR(255),
+    poem_score VARCHAR(255),
+    bmsi_adverse_score VARCHAR(255),
+    bmsi_capable_score VARCHAR(255),
+    bmsi_response_score VARCHAR(255),
+    btms_bm_score VARCHAR(255),
+    btms_bthreat_score VARCHAR(255),
+    btms_tscore VARCHAR(255),
+    vas_score VARCHAR(255),
+    skinqol_used VARCHAR(255),
+    skinqol_score VARCHAR(255),
+    sdc_srbd_scale VARCHAR(255),
+    sdc_sleepiness_scale VARCHAR(255),
+    sdc_restless_leg_scale VARCHAR(255),
+    sdc_mtainsc VARCHAR(255),
+    sdc_mtainsc_tscore VARCHAR(255),
+    sdsc_breath VARCHAR(255),
+    sdc_breath_tscore VARCHAR(255),
+    sdsc_arousal VARCHAR(255),
+    sdc_arousal_tscore VARCHAR(255),
+    sdsc_transit VARCHAR(255),
+    sdc_transit_tscore VARCHAR(255),
+    sdsc_somnol VARCHAR(255),
+    sdc_somnol_tscore VARCHAR(255),
+    sdsc_hyper VARCHAR(255),
+    sdc_hyper_tscore VARCHAR(255),
+    sdsc_tscore VARCHAR(255),
+    sdsc_total_t_score VARCHAR(255),
+    ehi_tscore VARCHAR(255),
+    wasi_fsiq4 VARCHAR(255),
+    GNG_RT_GOS VARCHAR(255),
+    GNG_SD_GOS VARCHAR(255),
+    GNG_PI_ALL VARCHAR(255),
+    GNG_AG_PR VARCHAR(255),
+    CPT_OM_ALL VARCHAR(255),
+    CPT_PRE_ALL VARCHAR(255),
+    CPT_CM_ALL VARCHAR(255),
+    CPT_MRT_ALL VARCHAR(255),
+    CPT_SD_ALL VARCHAR(255),
+    STR_RTCONGR VARCHAR(255),
+    STR_SDCONGR VARCHAR(255),
+    STR_PM_ALL VARCHAR(255),
+    STR_RT_EFF VARCHAR(255),
+    TD_ERR VARCHAR(255),
+    MCVT_OM VARCHAR(255),
+    MCVT_COM VARCHAR(255),
+    COMP_PREM VARCHAR(255),
+    COMP_MRT VARCHAR(255),
+    COMP_CV VARCHAR(255)
+);
+```
+
+Make sure to refresh the tables, right clicking on the `mind_and_skin`database, and clicking "Refresh".
+
+Load into the`Visit_Measurement_Staging` table directly from `data/collated/Visit_Measurement.csv`
+
+```{sql}
+-- Step 2: (Optional check) Preview contents of staging table
+SELECT * FROM Visit_Measurement_Staging_Wide LIMIT 10;
+
+INSERT INTO Visit_Measurement (visit_id, measurement_id, value)
+SELECT v.visit_id, m.measurement_id, vs.sbfa_twel_det2
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sbfa_twel_det2'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sbfa_arm_flux1
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sbfa_arm_flux1'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sbfa_arm_flux2
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sbfa_arm_flux2'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sbfa_arm_flux3
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sbfa_arm_flux3'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sbfa_arm_cur
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sbfa_arm_cur'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sbfa_temp
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sbfa_temp'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sbfa_humidity
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sbfa_humidity'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sbfa_ph_det
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sbfa_ph_det'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sbfa_ph1
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sbfa_ph1'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sbfa_ph2
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sbfa_ph2'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sbfa_ph3
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sbfa_ph3'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.se_easi
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'se_easi'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.poem_score
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'poem_score'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.bmsi_adverse_score
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'bmsi_adverse_score'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.bmsi_capable_score
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'bmsi_capable_score'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.bmsi_response_score
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'bmsi_response_score'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.btms_bm_score
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'btms_bm_score'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.btms_bthreat_score
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'btms_bthreat_score'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.btms_tscore
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'btms_tscore'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.vas_score
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'vas_score'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.skinqol_used
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'skinqol_used'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.skinqol_score
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'skinqol_score'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdc_srbd_scale
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdc_srbd_scale'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdc_sleepiness_scale
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdc_sleepiness_scale'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdc_restless_leg_scale
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdc_restless_leg_scale'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdc_mtainsc
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdc_mtainsc'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdc_mtainsc_tscore
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdc_mtainsc_tscore'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdsc_breath
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdsc_breath'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdc_breath_tscore
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdc_breath_tscore'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdsc_arousal
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdsc_arousal'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdc_arousal_tscore
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdc_arousal_tscore'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdsc_transit
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdsc_transit'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdc_transit_tscore
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdc_transit_tscore'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdsc_somnol
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdsc_somnol'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdc_somnol_tscore
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdc_somnol_tscore'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdsc_hyper
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdsc_hyper'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdc_hyper_tscore
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdc_hyper_tscore'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdsc_tscore
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdsc_tscore'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.sdsc_total_t_score
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'sdsc_total_t_score'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.ehi_tscore
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'ehi_tscore'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.wasi_fsiq4
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'wasi_fsiq4'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.GNG_RT_GOS
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'GNG_RT_GOS'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.GNG_SD_GOS
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'GNG_SD_GOS'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.GNG_PI_ALL
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'GNG_PI_ALL'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.GNG_AG_PR
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'GNG_AG_PR'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.CPT_OM_ALL
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'CPT_OM_ALL'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.CPT_PRE_ALL
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'CPT_PRE_ALL'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.CPT_CM_ALL
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'CPT_CM_ALL'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.CPT_MRT_ALL
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'CPT_MRT_ALL'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.CPT_SD_ALL
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'CPT_SD_ALL'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.STR_RTCONGR
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'STR_RTCONGR'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.STR_SDCONGR
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'STR_SDCONGR'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.STR_PM_ALL
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'STR_PM_ALL'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.STR_RT_EFF
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'STR_RT_EFF'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.TD_ERR
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'TD_ERR'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.MCVT_OM
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'MCVT_OM'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.MCVT_COM
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'MCVT_COM'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.COMP_PREM
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'COMP_PREM'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.COMP_MRT
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'COMP_MRT'
+UNION ALL
+SELECT v.visit_id, m.measurement_id, vs.COMP_CV
+FROM Visit_Measurement_Staging_Wide vs
+JOIN Participant p ON vs.subject_id = p.subject_id
+JOIN Visit v ON v.participant_id = p.participant_id AND vs.type = v.type
+JOIN Measurement m ON m.coding = 'COMP_CV';
+
+
+-- cheking to ensure all variables are there by expected measurement 
+SELECT DISTINCT m.coding
+FROM Visit_Measurement vm
+JOIN Measurement m ON vm.measurement_id = m.measurement_id
+ORDER BY m.coding;
+
+
+-- checking all of MS01 measurements
+SELECT 
+    p.subject_id,
+    v.type AS visit_type,
+    m.coding AS measurement,
+    vm.value
+FROM Visit_Measurement vm
+JOIN Visit v ON vm.visit_id = v.visit_id
+JOIN Participant p ON v.participant_id = p.participant_id
+JOIN Measurement m ON vm.measurement_id = m.measurement_id
+WHERE p.subject_id = 'MS01'
+  AND v.type = 'Baseline - Visit 1'
+ORDER BY m.coding;
+
+-- Step 3: Drop table
+DROP TABLE Visit_Measurement_Staging_Wide;
+```
+
+### Comorbidity
+
+Load into the `Comorbidity` table directly from `data/collated/Comorbidity.csv`
+
+### Participant_Comorbidity
+
+```{sql}
+-- Step 1: Create staging table to match your CSV structure
+CREATE TABLE Participant_Comorbidity_Staging (
+    subject_id VARCHAR(10),
+    mh_asthma VARCHAR(10),
+    mh_rhino VARCHAR(10),
+    mh_fdalle VARCHAR(10),
+    mh_ctalle VARCHAR(10),
+    mh_slpdist VARCHAR(10)
+);
+```
+
+Make sure to refresh the tables, right clicking on the `mind_and_skin`database, and clicking "Refresh".
+
+Load into the `Participant_Comorbidity_Staging` table directly from `data/collated/Participant_Comorbidity.csv`
+
+```{sql}
+-- Step 2: Insert each comorbidity into the normalized table
+INSERT INTO Participant_Comorbidity (participant_id, comorbidity_id, has_comorbidity)
+SELECT p.participant_id, c.comorbidity_id, pcs.mh_asthma
+FROM Participant_Comorbidity_Staging pcs
+JOIN Participant p ON pcs.subject_id = p.subject_id
+JOIN Comorbidity c ON c.coding = 'mh_asthma'
+UNION ALL
+SELECT p.participant_id, c.comorbidity_id, pcs.mh_rhino
+FROM Participant_Comorbidity_Staging pcs
+JOIN Participant p ON pcs.subject_id = p.subject_id
+JOIN Comorbidity c ON c.coding = 'mh_rhino'
+UNION ALL
+SELECT p.participant_id, c.comorbidity_id, pcs.mh_fdalle
+FROM Participant_Comorbidity_Staging pcs
+JOIN Participant p ON pcs.subject_id = p.subject_id
+JOIN Comorbidity c ON c.coding = 'mh_fdalle'
+UNION ALL
+SELECT p.participant_id, c.comorbidity_id, pcs.mh_ctalle
+FROM Participant_Comorbidity_Staging pcs
+JOIN Participant p ON pcs.subject_id = p.subject_id
+JOIN Comorbidity c ON c.coding = 'mh_ctalle'
+UNION ALL
+SELECT p.participant_id, c.comorbidity_id, pcs.mh_slpdist
+FROM Participant_Comorbidity_Staging pcs
+JOIN Participant p ON pcs.subject_id = p.subject_id
+JOIN Comorbidity c ON c.coding = 'mh_slpdist';
+
+-- Step 3: (Optional) Check inserts
+SELECT * FROM Participant_Comorbidity LIMIT 100;
+
+SELECT * FROM Participant_Comorbidity_Staging LIMIT 100;
+
+
+-- Step 4: Clean up
+DROP TABLE Participant_Comorbidity_Staging;
+
+```
+
+### Medication_Category
+
+Load into the `Medication_Category` table directly from `data/collated/Medication_Category.csv`
+
+### Participant_Medication
+
+```{sql}
+-- Step 1: Create a staging table matching your CSV structure
+CREATE TABLE Participant_Medication_Staging (
+    subject_id VARCHAR(10),
+    medication_category VARCHAR(100),
+    medication_name VARCHAR(255),
+    potency VARCHAR(50),
+    sequence INT,
+    units VARCHAR(50),
+    frequency VARCHAR(50)
+);
+```
+
+Make sure to refresh the tables, right clicking on the `mind_and_skin`database, and clicking "Refresh".
+
+Load into the `Participant_Medication_Staging` table directly from `data/collated/Participant_Medication.csv`
+
+```{sql}
+
+-- Step 2: Insert into the normalized Participant_Medication table
+INSERT INTO Participant_Medication (
+    participant_id,
+    medication_category_id,
+    medication_name,
+    potency,
+    units,
+    frequency,
+    sequence
+)
+SELECT
+    p.participant_id,
+    mc.medication_category_id,
+    s.medication_name,
+    s.potency,
+    s.units,
+    s.frequency,
+    s.sequence
+FROM Participant_Medication_Staging s
+JOIN Participant p ON s.subject_id = p.subject_id
+JOIN Medication_Category mc ON s.medication_category = mc.category;
+
+-- Step 3: Optional check
+SELECT * FROM Participant_Medication LIMIT 10;
+SELECT * FROM Participant_Medication_Staging LIMIT 10;
+
+
+-- Step 4: Clean up
+DROP TABLE Participant_Medication_Staging;
+
+```
+
+### Diagnostic_Criteria
+
+Load into the `Diagnostic_Criteria` table directly from `data/collated/Diagnostic_Criteria.csv`
+
+### Participant_Diagnostic_Criteria
+
+```{sql}
+-- Step 1: Create staging table to match your CSV structure
+CREATE TABLE Participant_Diagnostic_Criteria_Staging (
+  subject_id VARCHAR(50),
+  dem_ukdiag1 VARCHAR(10),
+  dem_ukdiag2 VARCHAR(10),
+  dem_ukdiag3 VARCHAR(10),
+  dem_ukdiag4 VARCHAR(10),
+  dem_ukdiag5 VARCHAR(10),
+  dem_ukdiag6 VARCHAR(10)
+);
+```
+
+Make sure to refresh the tables, right clicking on the `mind_and_skin`database, and clicking "Refresh".
+
+Load into the `Participant_Diagnostic_Criteria_Staging` table directly from `data/collated/Participant_Diagnostic_Criteria.csv`
+
+```{sql}
+-- Step 2: Insert each diagnostic criteria into the normalized table
+INSERT INTO Participant_Diagnostic_Criteria (participant_id, diagnostic_criteria_id, met)
+SELECT p.participant_id, dc.diagnostic_criteria_id, s.dem_ukdiag1
+FROM Participant_Diagnostic_Criteria_Staging s
+JOIN Participant p ON s.subject_id = p.subject_id
+JOIN Diagnostic_Criteria dc ON dc.coding = 'dem_ukdiag1'
+
+UNION ALL
+SELECT p.participant_id, dc.diagnostic_criteria_id, s.dem_ukdiag2
+FROM Participant_Diagnostic_Criteria_Staging s
+JOIN Participant p ON s.subject_id = p.subject_id
+JOIN Diagnostic_Criteria dc ON dc.coding = 'dem_ukdiag2'
+
+UNION ALL
+SELECT p.participant_id, dc.diagnostic_criteria_id, s.dem_ukdiag3
+FROM Participant_Diagnostic_Criteria_Staging s
+JOIN Participant p ON s.subject_id = p.subject_id
+JOIN Diagnostic_Criteria dc ON dc.coding = 'dem_ukdiag3'
+
+UNION ALL
+SELECT p.participant_id, dc.diagnostic_criteria_id, s.dem_ukdiag4
+FROM Participant_Diagnostic_Criteria_Staging s
+JOIN Participant p ON s.subject_id = p.subject_id
+JOIN Diagnostic_Criteria dc ON dc.coding = 'dem_ukdiag4'
+
+UNION ALL
+SELECT p.participant_id, dc.diagnostic_criteria_id, s.dem_ukdiag5
+FROM Participant_Diagnostic_Criteria_Staging s
+JOIN Participant p ON s.subject_id = p.subject_id
+JOIN Diagnostic_Criteria dc ON dc.coding = 'dem_ukdiag5'
+
+UNION ALL
+SELECT p.participant_id, dc.diagnostic_criteria_id, s.dem_ukdiag6
+FROM Participant_Diagnostic_Criteria_Staging s
+JOIN Participant p ON s.subject_id = p.subject_id
+JOIN Diagnostic_Criteria dc ON dc.coding = 'dem_ukdiag6';
+
+-- Step 3: (Optional) Check inserts
+SELECT * FROM Participant_Diagnostic_Criteria LIMIT 100;
+
+SELECT * FROM Participant_Diagnostic_Criteria_Staging LIMIT 100;
+
+
+-- Step 4: Clean up
+DROP TABLE Participant_Diagnostic_Criteria_Staging;
+```
+
+### Ethnicity_Group
+
+Load into the `Ethnicity_Group` table directly from `data/collated/Ethnicity_Group.csv`
+
+### Ethnicity_Subtype
+
+```{sql}
+-- Step 1: Create a temporary staging table for ethnicity subtypes
+CREATE TABLE Ethnicity_Subtype_Staging (
+    subtype_name VARCHAR(100),
+    group_name VARCHAR(60)
+);
+```
+
+Make sure to refresh the tables, right clicking on the `mind_and_skin`database, and clicking "Refresh".
+
+Load into the `Participant_Ethnicity_Subtype` table directly from `data/collated/Ethnicity_Subtype.csv`
+
+```{sql}
+-- Step 2: Insert normalized subtype records into the Ethnicity_Subtype table
+-- by joining to Ethnicity_Group to resolve ethnicity_group_id
+INSERT INTO Ethnicity_Subtype (ethnicity_group_id, subtype_name)
+SELECT g.ethnicity_group_id, s.subtype_name
+FROM Ethnicity_Subtype_Staging s
+JOIN Ethnicity_Group g ON s.group_name = g.group_name;
+
+-- Step 3: Optional preview of inserted rows
+SELECT * FROM Ethnicity_Subtype LIMIT 20;
+
+-- Step 4: Optional check of staging table
+SELECT * FROM Ethnicity_Subtype_Staging LIMIT 10;
+
+-- Step 5: Clean up
+DROP TABLE Ethnicity_Subtype_Staging;
+
+```
+
+### Participant_Ethnicity
+
+```{sql}
+-- Step 1: Create staging table for CSV data
+CREATE TABLE Participant_Ethnicity_Staging (
+    subject_id VARCHAR(10),
+    group_name VARCHAR(60),
+    subtype_name VARCHAR(100)
+);
+```
+
+Make sure to refresh the tables, right clicking on the `mind_and_skin`database, and clicking "Refresh".
+
+Load into the `Participant_Ethnicity_Staging` table directly from `data/collated/Participant_Ethnicity.csv`
+
+```{sql}
+-- Step 2: Insert normalized records into Participant_Ethnicity
+-- Match subject_id → participant_id and subtype_name → ethnicity_subtype_id
+INSERT INTO Participant_Ethnicity (participant_id, ethnicity_subtype_id)
+SELECT p.participant_id, es.ethnicity_subtype_id
+FROM Participant_Ethnicity_Staging s
+JOIN Participant p ON s.subject_id = p.subject_id
+JOIN Ethnicity_Subtype es ON s.subtype_name = es.subtype_name;
+
+-- Step 3: Optional check of inserted records
+SELECT * FROM Participant_Ethnicity LIMIT 10;
+
+-- Step 4: Clean up
+DROP TABLE Participant_Ethnicity_Staging;
+```

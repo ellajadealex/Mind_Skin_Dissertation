@@ -1,0 +1,7 @@
+criteria,coding,notes
+An itchy skin condition in the last year,dem_ukdiag1,
+Visual flexural dermatitis,dem_ukdiag2,
+History of flexural involvement,dem_ukdiag3,
+History of generally dry skin,dem_ukdiag4,
+Personal history of atopic disease,dem_ukdiag5,children under 4 years: family history of atopic disease
+Onset before the  age of 2 years,dem_ukdiag6,not used if child aged < 4 years

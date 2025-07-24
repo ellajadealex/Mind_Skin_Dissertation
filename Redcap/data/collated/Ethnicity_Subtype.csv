@@ -1,0 +1,20 @@
+subtype_name,group_name
+Indian,Asian or Asian British
+Pakistani,Asian or Asian British
+Bangladeshi,Asian or Asian British
+Chinese,Asian or Asian British
+Any other Asian background,Asian or Asian British
+"English, Welsh, Scottish, Northern Irish or British",White
+Irish,White
+Gypsy or Irish Traveller,White
+Roma,White
+Any other White Background,White
+Caribbean,"Black, Black British, Caribbean or African"
+African,"Black, Black British, Caribbean or African"
+"Any other Black, Black British, Caribbean Background","Black, Black British, Caribbean or African"
+White and Black Caribbean,Mixed or multiple ethnic groups
+White and Black African,Mixed or multiple ethnic groups
+White and Asian,Mixed or multiple ethnic groups
+Any other Mixed or multiple ethnic background,Mixed or multiple ethnic groups
+Arab,Other ethnic group
+Any other ethnic group,Other ethnic group

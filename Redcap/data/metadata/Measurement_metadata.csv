@@ -1,0 +1,62 @@
+coded_header,measurement,description,data_type,unit
+sbfa_twel_det2,TEWL Forearm Location,,VARCHAR(5),String
+sbfa_arm_flux1,ARM 1 Flux,,"DECIMAL(5, 3)",mg/meter sq * height
+sbfa_arm_flux2,ARM 2 Flux,,"DECIMAL(5, 3)",mg/meter sq * height
+sbfa_arm_flux3,ARM 3 Flux,,"DECIMAL(5, 3)",mg/meter sq * height
+sbfa_arm_cur,Decent measurement curves?,,BOOLEAN,String
+sbfa_temp,Temperature,,"DECIMAL(4, 1)",◦C
+sbfa_humidity,Room humidity,,"DECIMAL(4, 1)",%
+sbfa_ph_det,PH Forearm Location,,VARCHAR(5),
+sbfa_ph1,PH measurment 1,,"DECIMAL(4, 2)",
+sbfa_ph2,PH measurment 2,,"DECIMAL(4, 2)",
+sbfa_ph3,PH measurment 3,,"DECIMAL(4, 2)",
+se_easi,EASI Total Score,,"DECIMAL(4, 2)",
+poem_score,POEM Total Score,,INT,
+bmsi_adverse_score,Body is an Adversary score,"mean of items : 1, 2, 3, 4","DECIMAL(4, 2)",
+bmsi_capable_score,Body is an Capable score,"mean of items : 5, 6","DECIMAL(4, 2)",
+bmsi_response_score,Body is a Responsive score,"mean of items :7, 8","DECIMAL(4, 2)",
+btms_bm_score,Bodily monitoring score,"sum items: 1, 5, 7, 12, 14, 17",INT,
+btms_bthreat_score,Bodily threat appraisals score,"sum items : 2, 3, 4, 6, 8, 9, 10, 11, 13, 15, 16, 18, 19",INT,
+btms_tscore,BTMS Total Score,,INT,
+vas_score,Itch Severity Numerical Rating Total Score,,INT,
+skinqol_used,Skin QOL uestionnaire used,"CDLQI (<=16 years old, range 0-30). 
+DLQI (>16 years old, range 0-30)",VARCHAR(5),String
+skinqol_score,Skin QOL Total Score,,INT,
+sdc_srbd_scale,SRBD scale,including snoring and sleepiness subscales,"DECIMAL(3, 2)",
+sdc_sleepiness_scale,Sleepiness subscale,,"DECIMAL(3, 2)",
+sdc_restless_leg_scale,Periodic Leg Movement/Restless Legs Syndrome scale,,"DECIMAL(3, 2)",
+sdc_mtainsc,Disorders of initiating and maintaining sleep score,"sum the score of the items 1,2,3,4,5,10,11",INT,
+sdc_mtainsc_tscore,Disorders of initiating and maintaining sleep T-score,,INT,
+sdsc_breath,Sleep Related Breathing Disorders score,"sum the score of the items 13,14,15",INT,
+sdc_breath_tscore,Sleep Related Breathing Disorders T-score,,INT,
+sdsc_arousal,Disorders of arousal score,"sum the score of the items 17,20,21",INT,
+sdc_arousal_tscore,Disorders of arousal T-score,,INT,
+sdsc_transit,Sleep-Wake Transition Disorders score,"sum the score of the items 6,7,8,12,18,19",INT,
+sdc_transit_tscore,Sleep-Wake Transition Disorders T-score,,INT,
+sdsc_somnol,Disorders of excessive somnolence score,"sum the score of the items 22,23,24,25,26",INT,
+sdc_somnol_tscore,Disorders of excessive somnolence T-score,,INT,
+sdsc_hyper,Sleep Hyperhydrosis score,"sum the score of the items 9,16",INT,
+sdc_hyper_tscore,Sleep Hyperhydrosis T-score,,INT,
+sdsc_tscore,SDSC Total Score,,INT,
+total_t_score,SDSC Total T-Score,,INT,
+ehi_tscore,EHI Total Score,Left-handedness - Less than -40. Ambidexterity=Between -40 and +40. Right-handness=More than +40,"DECIMAL(5,2)",
+wasi_fsiq4,FSIQ-4 Total score,,INT,
+GNG_RT_GOS,GNG Reaction time to go signals,,"DECIMAL(15,12)",ms
+GNG_SD_GOS,GNG Standard deviation of reaction time to go signals,,"DECIMAL(15,12)",ms
+GNG_PI_ALL,GNG Probability of inhibition,,INT,%
+GNG_AG_PR,GNG Premature responses to all,,INT,
+CPT_OM_ALL,CPT Percentage of omission error,,"DECIMAL(16,14)",%
+CPT_PRE_ALL,CPT Number of premature responses to all signals,,INT,
+CPT_CM_ALL,CPT Percentage of comission error,,"DECIMAL(16,14)",%
+CPT_MRT_ALL,CPT Mean reaction time (MRT) of target,Reward + non-reward,"DECIMAL(15,12)",ms
+CPT_SD_ALL,CPT Standard deviation of MRT target,,"DECIMAL(15,12)",ms
+STR_RTCONGR,STR Reaction time to congruent signals,,"DECIMAL(15,12)",ms
+STR_SDCONGR,STR Standard deviation of RTs to congruent signals ,,"DECIMAL(15,12)",ms
+STR_PM_ALL,STR Number of premature responses to all signals ,,INT,
+STR_RT_EFF,STR Reaction time to incongruent signal minus reaction time to congruent signals,,"DECIMAL(15,12)",ms
+TD_ERR,TD Percentage of total errors,,"DECIMAL(15,12)",%
+MCVT_OM,MCVT Number of omission errors,,INT,
+MCVT_COM,MCVT Number of comission errors,,INT,
+COMP_PREM,Composite number of premature responses,,"DECIMAL(15,12)",
+COMP_MRT,Composite mean reaction time,,"DECIMAL(15,12)",ms
+COMP_CV,Composite coefficient of variance,"a measure of relative variability, equal to the ratio of SD to mean","DECIMAL(15,12)",

@@ -1,0 +1,62 @@
+measurement_coding,assessment_coding,measurement_name,measurement_description,measurement_unit
+sbfa_twel_det2,sbfa,TEWL Forearm Location,,String
+sbfa_arm_flux1,sbfa,ARM 1 Flux,,mg/meter sq * height
+sbfa_arm_flux2,sbfa,ARM 2 Flux,,mg/meter sq * height
+sbfa_arm_flux3,sbfa,ARM 3 Flux,,mg/meter sq * height
+sbfa_arm_cur,sbfa,Decent measurement curves?,,String
+sbfa_temp,sbfa,Temperature,,◦C
+sbfa_humidity,sbfa,Room humidity,,%
+sbfa_ph_det,sbfa,PH Forearm Location,,String
+sbfa_ph1,sbfa,PH measurment 1,,Number
+sbfa_ph2,sbfa,PH measurment 2,,Number
+sbfa_ph3,sbfa,PH measurment 3,,Number
+se_easi,se_easi,EASI Total Score,,Number
+poem_score,poem,POEM Total Score,,Number
+bmsi_adverse_score,bmsi,Body is an Adversary score,"mean of items : 1, 2, 3, 4",Number
+bmsi_capable_score,bmsi,Body is an Capable score,"mean of items : 5, 6",Number
+bmsi_response_score,bmsi,Body is a Responsive score,"mean of items :7, 8",Number
+btms_bm_score,btms,Bodily monitoring score,"sum items: 1, 5, 7, 12, 14, 17",Number
+btms_bthreat_score,btms,Bodily threat appraisals score,"sum items : 2, 3, 4, 6, 8, 9, 10, 11, 13, 15, 16, 18, 19",Number
+btms_tscore,btms,BTMS Total Score,,Number
+vas_score,vas,Itch Severity Numerical Rating Total Score,,Number
+skinqol_used,skinqol,Skin QOL uestionnaire used,"CDLQI (<=16 years old, range 0-30). 
+DLQI (>16 years old, range 0-30)",String
+skinqol_score,skinqol,Skin QOL Total Score,,Number
+sdc_srbd_scale,sdc,SRBD scale,including snoring and sleepiness subscales,Number
+sdc_sleepiness_scale,sdc,Sleepiness subscale,,Number
+sdc_restless_leg_scale,sdc,Periodic Leg Movement/Restless Legs Syndrome scale,,Number
+sdc_mtainsc,sdc,Disorders of initiating and maintaining sleep score,"sum the score of the items 1,2,3,4,5,10,11",Number
+sdc_mtainsc_tscore,sdc,Disorders of initiating and maintaining sleep T-score,,Number
+sdsc_breath,sdsc,Sleep Related Breathing Disorders score,"sum the score of the items 13,14,15",Number
+sdc_breath_tscore,sdsc,Sleep Related Breathing Disorders T-score,,Number
+sdsc_arousal,sdsc,Disorders of arousal score,"sum the score of the items 17,20,21",Number
+sdc_arousal_tscore,sdc,Disorders of arousal T-score,,Number
+sdsc_transit,sdsc,Sleep-Wake Transition Disorders score,"sum the score of the items 6,7,8,12,18,19",Number
+sdc_transit_tscore,sdc,Sleep-Wake Transition Disorders T-score,,Number
+sdsc_somnol,sdsc,Disorders of excessive somnolence score,"sum the score of the items 22,23,24,25,26",Number
+sdc_somnol_tscore,sdc,Disorders of excessive somnolence T-score,,Number
+sdsc_hyper,sdsc,Sleep Hyperhydrosis score,"sum the score of the items 9,16",Number
+sdc_hyper_tscore,sdc,Sleep Hyperhydrosis T-score,,Number
+sdsc_tscore,sdsc,SDSC Total Score,,Number
+sdsc_total_t_score,sdsc,SDSC Total T-Score,,Number
+ehi_tscore,ehi,EHI Total Score,Left-handedness - Less than -40. Ambidexterity=Between -40 and +40. Right-handness=More than +40,Number
+wasi_fsiq4,wasi,FSIQ-4 Total score,,Number
+GNG_RT_GOS,GNG,GNG Reaction time to go signals,,ms
+GNG_SD_GOS,GNG,GNG Standard deviation of reaction time to go signals,,ms
+GNG_PI_ALL,GNG,GNG Probability of inhibition,,%
+GNG_AG_PR,GNG,GNG Premature responses to all,,Number
+CPT_OM_ALL,CPT,CPT Percentage of omission error,,%
+CPT_PRE_ALL,CPT,CPT Number of premature responses to all signals,,Number
+CPT_CM_ALL,CPT,CPT Percentage of comission error,,%
+CPT_MRT_ALL,CPT,CPT Mean reaction time (MRT) of target,Reward + non-reward,ms
+CPT_SD_ALL,CPT,CPT Standard deviation of MRT target,,ms
+STR_RTCONGR,STR,STR Reaction time to congruent signals,,ms
+STR_SDCONGR,STR,STR Standard deviation of RTs to congruent signals ,,ms
+STR_PM_ALL,STR,STR Number of premature responses to all signals ,,Number
+STR_RT_EFF,STR,STR Reaction time to incongruent signal minus reaction time to congruent signals,,ms
+TD_ERR,TD,TD Percentage of total errors,,%
+MCVT_OM,MCVT,MCVT Number of omission errors,,Number
+MCVT_COM,MCVT,MCVT Number of comission errors,,Number
+COMP_PREM,COMP,Composite number of premature responses,,Number
+COMP_MRT,COMP,Composite mean reaction time,,ms
+COMP_CV,COMP,Composite coefficient of variance,"a measure of relative variability, equal to the ratio of SD to mean",Number

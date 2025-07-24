@@ -30,7 +30,6 @@ ectrt_calci2,Add another calcineurin inhibitor?
 ectrt_cakci2drg_2,Calicineurin drug  2
 ectrt_calci3,Add another calcineurin inhibitor?
 ectrt_cakci3drg_3,Calicineurin drug 3
-ectrt_st,Is the patient starting systemic therapy?
 ectrt_st_add1,1. Add  systemic therapy?
 ectrt_st_name1,1. Name of systemic therapy
 ectrt_st_units1,1. Units of systematic therapy
@@ -48,7 +47,6 @@ mh_rhino,Allergic rhino-conjunctivitis (hayfever)
 mh_fdalle,Food allergies
 mh_ctalle,Contact allergies
 mh_slpdist,Does the patient have a history of sleep disturbance?
-sbfa_twel,Transepidermal (TEWL) water loss measurement (uninvolved skin left volar forearm)
 sbfa_twel_det2,"If yes, please select:"
 sbfa_arm_flux1,ARM 1 Flux (mg/meter sq * height)
 sbfa_arm_flux2,ARM 2 Flux (mg/meter sq * height)
@@ -56,7 +54,6 @@ sbfa_arm_flux3,ARM 3 Flux (mg/meter sq * height)
 sbfa_arm_cur,Decent measurement curves?
 sbfa_temp,Temperature (◦C)
 sbfa_humidity,Room humidity (%)
-sbfa_ph,PH meter reading (volar forearm)
 sbfa_ph_det,"If yes, please select:"
 sbfa_ph1,PH measurment 1
 sbfa_ph2,PH measurment 2
@@ -88,6 +85,6 @@ sdc_somnol_tscore,T-Score:
 sdsc_hyper,"Sleep Hyperhydrosis (sum the score of the items 9,16)"
 sdc_hyper_tscore,T-Score:
 sdsc_tscore,Total score
-total_t_score,Total T-Score:
+sdsc_total_t_score,Total T-Score:
 ehi_tscore,Total scoreLeft-handedness - Less than -40Ambidexterity=Between -40 and +40Right-handness=More than +40
 wasi_fsiq4,Total FSIQ-4 score

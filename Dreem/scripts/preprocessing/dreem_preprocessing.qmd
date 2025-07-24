@@ -767,7 +767,7 @@ To run on command line (from scripts directory):
 ./generate_eannot.sh
 ```
 
-### Step 5: Filtering for EDFs ≥ 4 Hours and Generating the Sample List
+## Filtering for EDFs ≥ 4 Hours and Generating the Sample List
 
 To ensure data quality and consistency in downstream analyses, this step filters out EDF recordings shorter than 4 hours (14,400 seconds). Short or incomplete recordings can bias summary statistics, reduce power in longitudinal comparisons, and interfere with analyses that rely on full-night coverage (e.g., CHEP, spectral dynamics).
 
