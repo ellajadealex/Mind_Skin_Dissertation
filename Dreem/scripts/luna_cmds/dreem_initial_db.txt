@@ -1,4 +1,4 @@
-% dreem_db_all_stages.txt
+% dreem_initial_db.txt
 
 EPOCH                          % Define 30s epochs
 
