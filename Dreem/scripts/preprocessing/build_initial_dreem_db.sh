@@ -9,7 +9,7 @@ EDF_DIR="$PROJECT_ROOT/data/processed/edf_data"
 LST_FILE="$PROJECT_ROOT/data/processed/sample_list/min_4hr_edf.lst"
 CMD_FILE="$PROJECT_ROOT/scripts/luna_cmds/dreem_initial_db.txt"
 OUTPUT_DB="$PROJECT_ROOT/data/processed/luna_outputs/dreem_initial.db"
-LOG_DIR="$PROJECT_ROOT/logs/preprocessing"
+LOG_DIR="$PROJECT_ROOT/logs/db_build"
 LOG_FILE="$LOG_DIR/dreem_db_build_log.txt"
 
 mkdir -p "$(dirname "$OUTPUT_DB")" "$LOG_DIR"

@@ -897,16 +897,6 @@ The Luna database is a structured SQLite file that stores:
 
 Each row corresponds to a single epoch in a single night of sleep, tied to a unique `standard_id` (`MSXX_VX_NXX_RXX`). The database structure allows for efficient queries, reproducible batch processing, and consistent application of analytical routines.
 
-### Why Build the DB in Stages?
-
-Instead of including all analyses at once, we construct an initial "raw" database containing only essential elements. Additional analyses — like CHEP or quality filtering — are layered in modular steps. This design:
-
--   Keeps the DB clean and reproducible
-
--   Allows for easier debugging and validation
-
--   Supports reusability across workflows
-
 ### Luna Command File Overview
 
 Luna’s processing is guided by a **command file**, which defines the exact set of operations to be performed on each sleep recording in the sample list. This file is a plain-text script, with each line corresponding to a Luna command — such as epoching, signal selection, or spectral analysis.
@@ -1340,35 +1330,51 @@ This incremental workflow ensures that new data are integrated:
 
 By preserving `rename_manifest.csv` as the central mapping file and rerunning the pipeline modularly, the system supports scalable longitudinal analysis while maintaining full reproducibility.
 
-## Assigning Group Labels to Participants
+## Assigning Group and Session (visit + group) Metadata to Participants
 
-To support group-based statistical analysis (e.g., comparing power spectral density across eczema severity groups), we created a reproducible metadata mapping of participant IDs to their assigned group (1–3).
+To enable group-based statistical comparisons (e.g., evaluating power spectral density across AE severity), we created a reproducible metadata file (`id_group_map.csv`) linking each EDF file to participant-level and session-level attributes.
 
-### Why this step is important
+#### Why this step is important
 
-Luna itself does not support tagging subjects with custom metadata (e.g., group or age) internally. Instead, downstream tools like R are used to merge this information during analysis. To enable this, we generate a clean, standardized `id_group_map.csv` that links each subject-night file in our sample to the correct group.
+Luna does not natively support internal tagging of recordings with metadata like group membership, visit, or night. These values are critical for stratified downstream analysis, such as comparing sleep architecture or CHEP-filtered PSD metrics across disease severity.
 
-We limit this mapping to only the EDF files passing our ≥4-hour sleep threshold, ensuring that metadata aligns exactly with the files used in database creation and analysis (`dreem_chep_psd_sigstats.db`).
+By producing a clean and standardized metadata table, we ensure that all subsequent analyses can accurately align outputs (e.g., from `sigstats`, `PSD`, or `CHEP`) to participant characteristics.
 
-### What the script does
+#### What the script does
 
--   Reads a cleaned REDCap export (`redcap_clean.csv`) containing subject IDs and group assignments.
+-   Loads the cleaned REDCap export (`redcap_clean.csv`), which contains `subject_id` and full-text group labels (e.g., `"Group 1 (immuno-modulatory therapy)"`).
 
--   Loads the 4-hour filtered sample list (`min_4hr_edf.lst`) used to build the Luna database.
+-   Maps these labels to simplified categories: `"severe AE"`, `"mild AE"`, and `"healthy controls"`.
 
--   Extracts the standardized IDs (e.g., `MS01_V1_N1`) from full EDF paths.
+-   Loads the 4-hour filtered sample list (`min_4hr_edf.lst`), ensuring only valid EDFs used in the Luna database are included.
 
--   Merges these IDs with group information from REDCap.
+-   Parses the standardized IDs (e.g., `MS01_V1_N1`) to extract:
 
--   Drops unmatched rows (e.g., REDCap entries with no EDF or vice versa).
+    -   `subject_id` (e.g., `MS01`)
 
--   Outputs a two-column CSV (`id_group_map.csv`) containing:
+    -   `visit` number (e.g., `V1`)
 
-    -   `standard_id`: the unique ID used in Luna and `.db` files
+    -   `night` number (e.g., `N1`)
 
-    -   `group`: assigned patient group (1, 2, or 3)
+-   Merges with group info from REDCap.
 
-This file can then be used in R for stratified analysis or plotting by merging with outputs like PSD or sigstats. It is integrated into the db later on in analysis.
+-   Drops any unmatched entries (e.g., REDCap participants without recordings or vice versa).
+
+-   Outputs a five-column metadata file with:
+
+    -   `standard_id`: the unique filename identifier (used across Luna and outputs)
+
+    -   `subject_id`: participant ID (e.g., `MS03`)
+
+    -   `group`: categorical label (`severe AE`, `mild AE`, or `healthy controls`)
+
+    -   `visit`: visit label (e.g., `V1`)
+
+    -   `night`: night label (e.g., `N3`)
+
+#### Output
+
+The resulting `id_group_map.csv` ensures consistent metadata joins for downstream stratification in R and integration into `.db` analyses (e.g.
 
 ### Script: `generate_metadata_from_redcap.R`
 
@@ -1379,34 +1385,45 @@ library(readr)
 library(stringr)
 
 # === Paths (relative to this script) ===
-redcap_path  <- "../../../Redcap/data/cleaned/redcap_clean.csv"
+redcap_path  <- "../../../Redcap/data/cleaned/redcap_cleaned.csv"
 lst_path     <- "../../data/processed/sample_list/min_4hr_edf.lst"
-output_path  <- "../../data/processed/metadata/id_group_map.csv"
+output_path  <- "../../data/processed/metadata/db_metadata.csv"
 
 # === Load REDCap data ===
 redcap <- read_csv(redcap_path, show_col_types = FALSE) %>%
-  select(subject_id, group) %>%                      # Keep only ID and group
-  mutate(subject_id = toupper(trimws(subject_id))) %>%  # Clean: uppercase & remove spaces
-  distinct()                                         # Drop any duplicate rows
+  select(subject_id, reg_grp) %>%                           # Use reg_grp instead of group
+  mutate(
+    subject_id = toupper(trimws(subject_id)),               # Clean IDs
+    group = case_when(
+      str_detect(reg_grp, "Group 1") ~ "severe AE",
+      str_detect(reg_grp, "Group 2") ~ "mild AE",
+      str_detect(reg_grp, "Group 3") ~ "healthy controls",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(group)) %>%
+  distinct(subject_id, group)
 
 # === Load list of EDFs ===
 lst <- read_lines(lst_path)
 
-# === Extract IDs ===
-standard_ids <- str_remove(basename(lst), "\\.(edf|eannot)$")
-participant_ids <- str_extract(standard_ids, "MS\\d+")   # Extract MS ID (e.g., MS01)
+# === Extract metadata from filenames ===
+standard_ids   <- str_remove(basename(lst), "\\.(edf|eannot)$")
+participant_ids <- str_extract(standard_ids, "MS\\d+")
+visit_nums     <- str_extract(standard_ids, "V\\d+")
+night_nums     <- str_extract(standard_ids, "N\\d+")
 
-# === Join with REDCap data ===
+# === Combine and join ===
 metadata <- tibble(
   standard_id = standard_ids,
-  subject_id  = participant_ids
+  subject_id  = participant_ids,
+  visit       = visit_nums,
+  night       = night_nums
 ) %>%
-  left_join(redcap, by = "subject_id") %>%     # Add group from REDCap
-  filter(!is.na(group)) %>%                    # Drop entries not found in REDCap
-  select(standard_id, group)
+  left_join(redcap, by = "subject_id") %>%
+  select(standard_id, subject_id, group, visit, night)
 
 # === Write output ===
 write_csv(metadata, output_path)
 cat("Metadata written to:", output_path, "\n")
-
 ```

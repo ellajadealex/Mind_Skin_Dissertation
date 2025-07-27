@@ -140,26 +140,240 @@ We use Luna’s:
 ```{r}
 library(luna)
 library(ggplot2)
-library(ggpubr)
 library(dplyr)
-library(readr)
-library(stringr)
-library(lubridate) # for working with dates
-library(scales)   # to access breaks/formatting functions
-library(gridExtra)
-library(tidyr)
+library(broom)
+library(gt)
 ```
 
 ### Load the Database
 
 ```{r}
 # Load in the Database
-chep_psd_sigstats <- ldb("../../data/processed/luna_outputs/dreem_chep_psd_sigstats.db")
+dreem_initial <- ldb("../../data/processed/luna_outputs/dreem_initial.db")
+```
+
+### Load the metadata
+
+```{r}
+# Load group assignment metadata
+metadata <- readr::read_csv("../../data/processed/metadata/db_metadata.csv") %>%
+  mutate(group = factor(group))  # ensures grouping is categorical
+```
+
+## Analysis
+
+### Plot 1: Relative Band Power by Group (EEG_F8_F7)
+
+#### **Purpose & Rationale**
+
+This plot explores **relative spectral power** across canonical frequency bands—**delta (0.5–4 Hz), theta (4–8 Hz), alpha (8–12 Hz), and beta (12–30 Hz)**—to investigate potential neurophysiological differences between children with **atopic eczema (AE)** and **healthy controls**. The focus is specifically on the **EEG_F8_F7 channel**, selected due to its superior signal quality in this Dreem-derived dataset.
+
+Relative power is computed as the **proportion of total power** within a specific frequency band, allowing comparisons across subjects with varying absolute signal strength. This standardization is essential given the heterogeneous signal amplitudes from home EEG setups.
+
+This analysis addresses the hypothesis that **children with more severe AE may exhibit altered sleep-related EEG dynamics**, potentially reflecting neurodevelopmental or inflammatory effects.
+
+#### **Methods Summary**
+
+For this analysis, we focused on the **EEG_F8_F7** channel, selected based on prior signal quality inspection. Power spectral density (PSD) data were filtered to include only the **delta, theta, alpha, and beta** frequency bands, corresponding to commonly studied core sleep-related rhythms. The dataset was limited to these bands using a conditional filter (`B %in% c("DELTA", "THETA", "ALPHA", "BETA")`). Participants were stratified into three groups—**healthy controls**, **mild atopic eczema (AE)**, and **severe AE**—based on clinical metadata. The primary variable analyzed was **relative power spectral density (RELPSD)**, representing each band’s contribution as a fraction of total PSD. Data were visualized using grouped boxplots overlaid with jittered individual data points (semi-transparent for outliers), with colors assigned by group for visual clarity.
+
+```{r}
+core_bands <- c("DELTA", "THETA", "ALPHA", "BETA")
+
+rel_df <- dreem_initial$PSD$B_CH %>%
+  rename(standard_id = ID) %>%
+  filter(B %in% core_bands) %>%
+  left_join(metadata, by = "standard_id")
+
+ggplot(rel_df, aes(x = B, y = RELPSD, fill = group)) +
+  geom_boxplot(width = 0.6, position = position_dodge(width = 0.7), outlier.alpha = 0.3) +
+  labs(
+    title = "Relative Band Power by Group (EEG_F8_F7)",
+    subtitle = "Comparing delta, theta, alpha, and beta bands across AE severity and controls",
+    x = "Frequency Band", y = "Relative PSD (fraction of total)", fill = "Group"
+  ) +
+  scale_fill_manual(values = c(
+    "healthy controls" = "slateblue",
+    "mild AE" = "plum3",
+    "severe AE" = "hotpink3"
+  )) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    axis.title = element_text(face = "bold")
+  )
+
+```
+
+![](images/clipboard-1677695006.png)
+
+#### **3. Interpretation of Results & Preliminary Conclusion**
+
+Across all groups, the **delta band** consistently exhibits the highest relative power, as expected during sleep. Visually, **healthy controls** appear to have slightly **higher delta power** compared to both AE groups, while **mild and severe AE groups** show slightly **elevated theta and beta power**. The **alpha band** remains low across all groups with minimal variation.
+
+These patterns suggest that children with atopic eczema may exhibit **subtle alterations in sleep-related brain activity**, particularly with **reduced delta** and **slightly elevated faster frequency bands** (theta/beta). While exploratory, these differences could reflect underlying differences in **sleep quality or neurodevelopment** associated with AE severity.
+
+### **Plot 2: MS36 - Night-to-Night PSD Variability (EEG_F8_F7)**
+
+#### **Purpose & Rationale**
+
+Understanding **intra-individual variability** in EEG power spectral density (PSD) is critical when interpreting sleep metrics, particularly in pediatric populations with conditions like atopic eczema (AE), where night-to-night variability may reflect fluctuations in disease severity, itch, or sleep quality. This plot explores **the temporal stability of spectral profiles** for a single subject (MS36) over 10 nights, providing insight into **trait vs. state EEG features** and guiding decisions around the **number of nights needed for reliable estimates**.
+
+#### **Methods Summary**
+
+PSD values were extracted from the `CH_F` output of Luna, representing power across frequency bins for each EEG channel. Data were filtered to include only channel **EEG_F8_F7** and subject **MS36**, across all available nights. The PSD curves (0–25 Hz range) were plotted per night using `ggplot2::facet_wrap()`, with consistent axis scaling to enable visual comparison. Each line represents the absolute PSD (µV²/Hz) per frequency bin for that night.
+
+```{r}
+ms36_df <- dreem_initial$PSD$CH_F %>%
+  rename(standard_id = ID) %>%
+  left_join(metadata, by = "standard_id") %>%
+  filter(subject_id == "MS36", CH == "EEG_F8_F7")
+
+ggplot(ms36_df, aes(x = F, y = PSD)) +
+  geom_line(color = "deeppink3", size = 0.8, alpha = 0.8) +
+  facet_wrap(~ night, ncol = 5, labeller = label_both) +
+  scale_x_continuous(breaks = seq(0, 25, 5)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  labs(
+    title = "MS36: Night-to-Night PSD Variability (EEG_F8_F7)",
+    subtitle = "Power spectral density across 10 nights (0–25 Hz)",
+    x = "Frequency (Hz)", y = expression(PSD~(mu*V^2/Hz))
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 12),
+    strip.text = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+![](images/clipboard-2192813418.png)
+
+#### **Interpretation of Results & Preliminary Conclusion**
+
+The plotted curves show a **consistent spectral shape across nights**, with a pronounced **delta band peak (\<4 Hz)** reflecting expected high-amplitude slow-wave activity during sleep. Some nights (e.g., **N1 and N4**) exhibit **elevated delta power**, suggesting possible variation in sleep depth, artifact presence, or physiological factors such as itch or movement.
+
+Overall, **the PSD profile is relatively stable**, indicating that this subject's spectral features are reproducible across nights. However, the **modest variability in magnitude** supports the use of **multi-night averaging** in pediatric sleep-neurophysiology research, particularly when quantifying EEG biomarkers sensitive to state-level fluctuations.
+
+### **Plot 3: MS32 - Relative Delta Power by Visit (EEG_F8_F7)**
+
+#### **Purpose & Rationale**
+
+This plot evaluates whether **relative delta power**, a marker of deep (slow-wave) sleep, **changes from Visit 1 (V1) to Visit 2 (V2)** in subject **MS32**, a child with severe atopic eczema placed on systemic treatment. Delta activity is a well-established indicator of sleep depth and quality, and longitudinal changes in this band may reflect **clinical response to treatment**, **reduction in night-time itch**, or other physiological shifts. Understanding intra-subject changes is essential for assessing the **sensitivity of EEG markers to interventions**.
+
+#### **Methods Summary**
+
+Relative delta power values (i.e. proportion of total spectral power in the delta band) were extracted from the `B_CH` output in Luna for channel **EEG_F8_F7**, focusing on the **DELTA** band and subject **MS32**. Data were stratified by visit (V1: pre-treatment, V2: post-treatment), and visualized using a **boxplot overlaid with jittered points**, each representing a single night. This enables assessment of central tendency and night-to-night variability across visits.
+
+```{r}
+ms32_df <- dreem_initial$PSD$B_CH %>%
+  rename(standard_id = ID) %>%
+  left_join(metadata, by = "standard_id") %>%
+  filter(subject_id == "MS32", CH == "EEG_F8_F7", B == "DELTA")
+
+ggplot(ms32_df, aes(x = visit, y = RELPSD)) +
+  geom_boxplot(fill = "lightpink", color = "black", outlier.shape = NA) +
+  geom_jitter(width = 0.1, alpha = 0.6, color = "black") +
+  labs(
+    title = "MS32: Relative Delta Power by Visit (EEG_F8_F7)",
+    subtitle = "Comparing pre- and post-treatment delta band power across nights",
+    x = "Visit", y = "Relative Delta Power"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(size = 12)
+  )
+```
+
+![](images/clipboard-3581646428.png)
+
+#### **Interpretation of Results & Preliminary Conclusion**
+
+The plot suggests a **modest increase in relative delta power** from Visit 1 to Visit 2. While variability remains across nights in both conditions, the **median delta power is higher in V2**, potentially indicating **improved sleep depth following treatment**. This pattern aligns with the hypothesis that **effective eczema management may enhance sleep physiology**, possibly by reducing sleep fragmentation or discomfort.
+
+These preliminary findings highlight the **value of within-subject comparisons across visits**, and suggest that **delta power may serve as a sensitive neurophysiological marker of treatment response** in pediatric AE populations. Further statistical testing and replication across subjects is required to support generalization.
+
+For Future....
+
+A start to tagging in sleep staging:\
+
+### Post-Hoc Comparisons of Relative Delta Power Across AE Severity Groups
+
+#### **Purpose & Rationale**
+
+The goal of this analysis was to explore between-group differences in **relative delta band power** (from channel EEG_F8_F7) among three groups: **healthy controls**, **mild AE**, and **severe AE**. Since an initial ANOVA indicated a statistically significant group effect, post-hoc comparisons using **Tukey's Honest Significant Difference (HSD)** test were employed to identify which specific group differences were driving the effect.
+
+```{r}
+delta_df <- rel_df %>% filter(B == "DELTA")
+model <- aov(RELPSD ~ group, data = delta_df)
+summary(model)
+TukeyHSD(model)
+
 ```
 
 ```{r}
-chep_psd_sigstats_stage <- ldb("../../data/processed/luna_outputs/dreem_chep_psd_sigstats_stage.db")
+# Run model
+delta_df <- rel_df %>% filter(B == "DELTA")
+model <- aov(RELPSD ~ group, data = delta_df)
+
+# Extract Tukey HSD results and clean up
+tukey_df <- TukeyHSD(model)$group %>%
+  as.data.frame() %>%
+  rownames_to_column("Comparison") %>%
+  rename(
+    Difference = diff,
+    Lower_CI = lwr,
+    Upper_CI = upr,
+    p_value = `p adj`
+  ) %>%
+  mutate(Significant = ifelse(p_value < 0.05, "Yes", "No"))
+
+# Format into a nice table
+tukey_df %>%
+  gt() %>%
+  tab_header(
+    title = "Tukey HSD Post-Hoc Test: Relative Delta Power by Group"
+  ) %>%
+  fmt_number(columns = c(Difference, Lower_CI, Upper_CI, p_value), decimals = 4) %>%
+  data_color(
+    columns = Significant,
+    colors = scales::col_factor(
+      palette = c("white", "lightpink"),
+      domain = c("No", "Yes")
+    )
+  ) %>%
+  tab_style(
+    style = list(cell_text(weight = "bold")),
+    locations = cells_body(
+      rows = Significant == "Yes"
+    )
+  )
+
 ```
+
+#### **Statistical Summary**
+
+-   **ANOVA Result**:
+    `F(2, 1542) = 7.579`, **p = 0.00053** → Significant group effect in relative delta power.
+
+-   **Tukey HSD Post-Hoc**:![](images/Screenshot 2025-07-25 at 21.22.22.png)
+
+### **Interpretation & Notes**
+
+-   **mild AE vs. healthy controls**: This was the only **significant** comparison. The delta power was **lower** in mild AE participants compared to healthy controls, suggesting an atypical suppression of slow-wave activity in this subgroup, potentially indicative of early or distinct neurophysiological alterations.
+
+-   **severe AE vs. healthy controls**: Despite a similar direction of difference, this was **not significant**. The wider confidence interval crossing zero suggests more **within-group variability** and/or **smaller effect size**. It may reflect that severe AE participants show more heterogeneous EEG patterns or compensatory mechanisms influencing delta power.
+
+-   **severe AE vs. mild AE**: Also **non-significant**. The small effect size and wide CI indicate overlapping distributions, and any group difference is likely subtle or masked by individual variability.
+
+### FUTURE: a start to tagging in sleep staging
 
 ```{bash}
 # W stage
@@ -186,90 +400,4 @@ luna /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/sam
 luna /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/sample_list/min_4hr_edf.lst \
   -a /Users/ellajadealex/Desktop/Mind_Skin_Dissertation/Dreem/data/processed/luna_outputs/dreem_psd_by_stage.db \
   -s 'EPOCH & MASK ifnot=R & RE & TAG SS/R & PSD spectrum'
-
-```
-
-```{r}
-dreem_psd_by_stage <- ldb("../../data/processed/luna_outputs/dreem_psd_by_stage.db")
-```
-
-Current issues:\
-
-## Analysis
-
-### Step 1: Extract PSD and SIGSTATS Tables
-
-Luna’s output database (`dreem_chep_psd_sigstats.db`) already contains structured tables produced from prior analysis steps using the `PSD` and `SIGSTATS` commands. When loaded with `ldb()`, the database is parsed into a list of data frames that reflect different levels of stratification (e.g., per-channel, per-epoch, per-frequency).
-
-There is no need to use `destrat()` here because the database format is already optimized for direct access.
-
-We extract two key tables:
-
--   `PSD$CH_F`: contains power values (`PSD`) at each frequency (`F`) for each channel and session.
-
--   `SIGSTATS$CH_E`: contains per-epoch band power summaries (`H1`, `H2`, etc.) for each channel and sleep stage.
-
-These are the primary inputs for PSD visualization and summary statistic extraction.
-
-```{r}
-# Extract per-frequency PSD (for spectral curves)
-psd <- chep_psd_sigstats$PSD$CH_F
-
-# Extract per-epoch SIGSTATS (for band power analysis)
-sig <- chep_psd_sigstats$SIGSTATS$CH_E
-```
-
-## Step 2: Merge PSD/SIGSTATS with Group Metadata
-
-To compare spectral features across participant groups (e.g., control, mild, severe eczema), we must first link each session’s `standard_id` to its assigned group. We previously created this mapping in `id_group_map.csv`.
-
-This step ensures that both the `psd` and `sig` tables include a `group` column — which is necessary for plotting group-level averages and performing statistical comparisons.
-
-We do this by:
-
-1.  Reading the metadata file (`id_group_map.csv`) containing the `standard_id` and `group` columns.
-
-2.  Renaming the `ID` column in both `psd` and `sig` tables to `standard_id` to match the metadata.
-
-3.  Performing a `left_join()` to add the `group` to each row.
-
-```{r}
-# Load group assignment metadata
-groups <- readr::read_csv("../../data/processed/metadata/id_group_map.csv")
-
-# Join group metadata to PSD data
-psd <- psd %>%
-  rename(standard_id = ID) %>%
-  left_join(groups, by = "standard_id")
-
-# Join group metadata to SIGSTATS data
-sig <- sig %>%
-  rename(standard_id = ID) %>%
-  left_join(groups, by = "standard_id")
-```
-
-## Step 3: Filter PSD by Sleep Stage and EEG Channel
-
-To visualize group differences, we start by selecting **one combination** of:
-
--   **Sleep stage** (e.g., N3 — deep sleep)
-
--   note: for now we are using all channels but that can be changed later
-
-This lets us generate a clean line plot of **power vs. frequency**, averaged within each group.
-
-We’ll begin with:
-
--   **Stage:** `N3`
-
-Later, we can scale this to loop or facet over more combinations.
-
-```{r}
-names(chep_psd_sigstats)
-names(chep_psd_sigstats$PSD)
-```
-
-```{r}
-psd_n3 <- psd %>%
-  filter(STAGE == "N3")
 ```
